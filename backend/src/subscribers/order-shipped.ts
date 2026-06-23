@@ -68,7 +68,7 @@ export default async function orderShippedHandler({
                 </td></tr>
                 <!-- Body -->
                 <tr><td style="padding:32px;">
-                  <h2 style="color:#0A2D6B;margin:0 0 16px;">Your Order is On the Way! 🚚</h2>
+                  <h2 style="color:#0A2D6B;margin:0 0 16px;">Your Order is On the Way!</h2>
                   <p style="color:#64748B;margin:0 0 8px;">Hi ${customerName},</p>
                   <p style="color:#64748B;margin:0 0 24px;">Your order <strong style="color:#0F172A;">#${orderDisplayId}</strong> has been shipped via <strong style="color:#0F172A;">${carrierName}</strong>.</p>
                   <!-- Tracking -->

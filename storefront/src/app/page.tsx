@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import Link from "next/link"
-import { ArrowRight, Smartphone, Shirt, Home, Dumbbell, Sparkles, ShoppingCart } from "lucide-react"
+import { ArrowRight, Smartphone, Shirt, Home, Dumbbell, Sparkles, ShoppingCart, Truck, Lock, Headphones } from "lucide-react"
 import { medusa } from "@/lib/medusa"
 import { TrustBar } from "@/components/shared/TrustBar"
 import { ProductCard } from "@/components/product/ProductCard"
@@ -224,17 +224,22 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {[
-              { icon: "📱", title: "M-Pesa Payments", desc: "STK Push for instant & secure local payment — no card needed" },
-              { icon: "🚚", title: "Nationwide Delivery", desc: "Door-to-door courier across all 47 counties in Kenya" },
-              { icon: "🔒", title: "Secure Checkout", desc: "SSL encrypted · Your data is always safe with us" },
-              { icon: "🧑‍💼", title: "Local Support", desc: "Nairobi-based team — call, WhatsApp, or email us" },
-            ].map((benefit, i) => (
-              <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6 text-center hover:bg-white/10 transition-colors">
-                <span className="text-3xl block mb-3">{benefit.icon}</span>
-                <h3 className="text-white font-bold text-sm">{benefit.title}</h3>
-                <p className="text-white/60 text-xs mt-1.5 leading-relaxed">{benefit.desc}</p>
-              </div>
-            ))}
+              { icon: Smartphone, title: "M-Pesa Payments", desc: "STK Push for instant & secure local payment — no card needed" },
+              { icon: Truck, title: "Nationwide Delivery", desc: "Door-to-door courier across all 47 counties in Kenya" },
+              { icon: Lock, title: "Secure Checkout", desc: "SSL encrypted · Your data is always safe with us" },
+              { icon: Headphones, title: "Local Support", desc: "Nairobi-based team — call, WhatsApp, or email us" },
+            ].map((benefit, i) => {
+              const Icon = benefit.icon
+              return (
+                <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6 text-center hover:bg-white/10 transition-colors flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gold mb-4">
+                    <Icon size={24} />
+                  </div>
+                  <h3 className="text-white font-bold text-sm">{benefit.title}</h3>
+                  <p className="text-white/60 text-xs mt-1.5 leading-relaxed">{benefit.desc}</p>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>

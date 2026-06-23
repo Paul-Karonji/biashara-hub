@@ -78,7 +78,7 @@ export default async function orderPlacedHandler({
                 </td></tr>
                 <!-- Body -->
                 <tr><td style="padding:32px;">
-                  <h2 style="color:#0A2D6B;margin:0 0 16px;">Order Confirmed! 🎉</h2>
+                  <h2 style="color:#0A2D6B;margin:0 0 16px;">Order Confirmed!</h2>
                   <p style="color:#64748B;margin:0 0 8px;">Hi ${customerName},</p>
                   <p style="color:#64748B;margin:0 0 24px;">Thank you for shopping at Biashara Hub. Your order <strong style="color:#0F172A;">#${orderDisplayId}</strong> has been successfully placed.</p>
                   <!-- Order Items -->

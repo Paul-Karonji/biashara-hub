@@ -52,7 +52,7 @@ export default async function customerCreatedHandler({
                 </td></tr>
                 <!-- Body -->
                 <tr><td style="padding:32px;">
-                  <h2 style="color:#0A2D6B;margin:0 0 16px;">Welcome to Biashara Hub! 🎉</h2>
+                  <h2 style="color:#0A2D6B;margin:0 0 16px;">Welcome to Biashara Hub!</h2>
                   <p style="color:#64748B;margin:0 0 16px;">Hi ${customerName},</p>
                   <p style="color:#64748B;margin:0 0 16px;">We are thrilled to welcome you to Biashara Hub, your trusted online marketplace in Kenya.</p>
                   <p style="color:#64748B;margin:0 0 12px;font-weight:bold;">With your new account, you can:</p>

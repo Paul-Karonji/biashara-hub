@@ -6,7 +6,7 @@ The platform is designed to eliminate high vendor platform fees and vendor lock-
 
 ---
 
-## 🚀 Key Features Implemented
+## Key Features Implemented
 
 *   **Native Kenyan Localisation:** Default currency set to **KES** (with USD fallback), standard tax regions configured to automatically apply **16% VAT**, and seeded regional category maps.
 *   **Kenyan Payment Channels:** Native **Lipa Na M-Pesa STK Push** payment flow designed directly into the checkout screens (with Safaricom webhook integration ready).
@@ -20,7 +20,7 @@ The platform is designed to eliminate high vendor platform fees and vendor lock-
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 /biashara-hub
@@ -49,7 +49,7 @@ The platform is designed to eliminate high vendor platform fees and vendor lock-
 
 ---
 
-## 🛠️ Local Development Setup
+## Local Development Setup
 
 ### 1. Prerequisites
 Ensure you have the following installed on your machine:
@@ -108,21 +108,21 @@ pnpm dev:storefront
 
 ---
 
-## 🩺 System Verification Checks
+## System Verification Checks
 Before deploying code changes, run these checks to ensure codebase stability:
 *   **Run Linter:** `pnpm run lint` *(Checks for code style anomalies)*
 *   **Type Checker:** `pnpm run type-check` *(Validates TypeScript files compiles cleanly)*
 
 ---
 
-## 🎨 Visual Identity & Spacing Rules
+## Visual Identity & Spacing Rules
 *   **Palette weights:** **70%** White background surfaces (`#FFFFFF` / `#F8FAFC`), **20%** Navy/Primary blue values (`#0A2D6B` / `#0F3D91`), and **10%** Accent Gold highlights (`#D4A017` / `#F4D57E`).
 *   **Typographical rules:** Utilizes **Inter** font with a maximum content container layout width of `1200px` (tested down to `320px` responsive breakpoints).
 *   **Micro-animations:** All button hover scales and drawer sliders use a standard **200ms ease** transition delay.
 
 ---
 
-## 📊 Metabase Dashboard SQL Reference
+## Metabase Dashboard SQL Reference
 
 Metabase runs on port `3001` and connects directly to the local PostgreSQL database. Use these pre-built SQL queries to populate the five default panels inside the Metabase dashboard interface:
 
