@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ke_ecommerce
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: masterKey
+    volumes:
+      - meilisearch_data:/meili_data
+
+  metabase:
+    image: metabase/metabase:v0.52.9
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ke_ecommerce
+      MB_DB_PORT: 5432
+      MB_DB_USER: postgres
+      MB_DB_PASS: password
+      MB_DB_HOST: postgres
+      JAVA_OPTS: "-Xmx512m"
+    depends_on:
+      postgres:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  postgres_data:
+  redis_data:
+  meilisearch_data:
+

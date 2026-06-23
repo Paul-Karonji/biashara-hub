@@ -1,0 +1,16 @@
+{
+  "name": "ke-ecommerce",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:storefront": "pnpm --filter storefront dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
