@@ -6,14 +6,24 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    // Default: warn on `any` so developers are aware, but don't block builds.
+    // Remove the `/* eslint-disable */` comments in individual files as you
+    // incrementally add proper types to replace `any`.
     rules: {
       "react-hooks/set-state-in-effect": "off",
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
+  {
+    // Stricter rules for shared library and hook files — these are the most
+    // reused code and should have proper types.
+    files: ["src/lib/**/*.ts", "src/hooks/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
     },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",

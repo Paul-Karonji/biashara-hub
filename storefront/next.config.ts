@@ -4,6 +4,12 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        // Local Medusa backend (dev & seed data)
+        protocol: "http",
+        hostname: "localhost",
+        port: "9000",
+      },
+      {
         // Medusa demo images (keep for dev/seed data)
         protocol: "https",
         hostname: "medusa-public-images.s3.eu-west-1.amazonaws.com",

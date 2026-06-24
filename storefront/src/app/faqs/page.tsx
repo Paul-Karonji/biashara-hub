@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 const FAQ_ITEMS = [
   {
     question: "How do I make a payment using M-Pesa?",
-    answer: "We support two M-Pesa checkout flows. The primary method is **M-Pesa STK Push**: enter your active phone number at checkout and we will send a secure pin validation prompt directly to your phone screen. Alternatively, you can use **Manual Till Payment**: send the amount to Buy Goods Till Number **174379** and input the 10-character Safaricom transaction confirmation code (e.g., QND46T89XZ) on our site to verify immediately."
+    answer: `We support two M-Pesa checkout flows. The primary method is **M-Pesa STK Push**: enter your active phone number at checkout and we will send a secure pin validation prompt directly to your phone screen. Alternatively, you can use **Manual Till Payment**: send the amount to Buy Goods Till Number **${process.env.NEXT_PUBLIC_MPESA_TILL_NUMBER || '174379'}** and input the 10-character Safaricom transaction confirmation code (e.g., QND46T89XZ) on our site to verify immediately.`
   },
   {
     question: "Do you support credit/debit cards?",

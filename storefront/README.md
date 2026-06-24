@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Biashara Hub — Storefront
 
-## Getting Started
+Next.js App Router storefront for the Biashara Hub e-commerce platform.
 
-First, run the development server:
+> **Part of the monorepo** — see the [root README](../README.md) for full setup, architecture, and environment variable documentation.
+
+---
+
+## Stack
+
+- **Next.js 15** (App Router, Server Components, Turbopack dev)
+- **TypeScript 5.6**
+- **Vanilla CSS** design system with CSS custom properties
+- **Medusa JS SDK** (`@medusajs/js-sdk`) for cart, products, and orders
+
+---
+
+## Local Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# From the monorepo root (recommended — starts both backend and storefront)
+pnpm dev:storefront
+
+# Or from this directory
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Storefront runs on **[http://localhost:3000](http://localhost:3000)**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Variables
 
-## Learn More
+Copy `.env.example` to `.env.local` and fill in the values:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cp .env.example .env.local
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_MEDUSA_BACKEND_URL` | Medusa API URL (e.g. `http://localhost:9000`) |
+| `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` | Publishable API key from Medusa Admin |
+| `NEXT_PUBLIC_MPESA_TILL_NUMBER` | Business till number shown to customers |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog project key (optional) |
+| `NEXT_PUBLIC_POSTHOG_HOST` | PostHog host (optional) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Key Directories
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/
+│   ├── checkout/
+│   │   ├── page.tsx                    # Checkout orchestrator (4-step flow)
+│   │   └── components/
+│   │       ├── CheckoutStepIndicator   # Progress bar component
+│   │       ├── CheckoutSummary         # Right-column mini-cart
+│   │       └── MpesaOverlay            # STK Push + Paystack redirect overlays
+│   ├── shop/                           # Product listing
+│   ├── p/[handle]/                     # Product detail page
+│   ├── cart/                           # Cart page
+│   ├── order/[id]/                     # Order confirmation + M-Pesa C2B verify
+│   ├── account/                        # Customer account
+│   └── wishlist/                       # Saved items
+│
+├── components/
+│   ├── layout/Header.tsx               # Sticky nav with cart drawer trigger
+│   ├── product/ProductCard.tsx         # Grid card with wishlist toggle
+│   └── product/ProductDetailsClient    # PDP client component
+│
+├── context/
+│   └── CartContext.tsx                 # Server-synced cart state
+│
+├── hooks/
+│   └── useWishlist.ts                  # Shared localStorage wishlist (cross-component sync)
+│
+└── lib/
+    ├── medusa.ts                       # Medusa SDK client
+    ├── formatters.ts                   # formatKES() and other utils
+    ├── analytics.ts                    # PostHog event wrappers
+    └── metadata.ts                     # buildMetadata() SEO helper
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Scripts
+
+```bash
+pnpm dev          # Start dev server (Turbopack)
+pnpm build        # Production build
+pnpm start        # Start production server
+pnpm lint         # ESLint
+pnpm type-check   # tsc --noEmit
+```
+
+---
+
+## Notes
+
+- All amounts are stored and returned by Medusa in **KES cents** (integer). `formatKES(amount)` divides by 100 and formats.
+- The checkout M-Pesa STK flow polls `/store/mpesa/status/:id` every 3 s for up to 120 s before timing out.
+- Wishlist state is stored in `localStorage` under the key `"wishlist"`. The `useWishlist` hook uses a module-level subscriber set so all components (ProductCard, ProductDetailsClient, wishlist page) stay in sync without a Context provider.

@@ -4,7 +4,7 @@ import { medusa } from "@/lib/medusa"
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_STORE_URL || "https://biasharahub.co.ke"
 
-  // Static pages
+  // Static pages — always included, even if the backend is unreachable
   const staticPages: MetadataRoute.Sitemap = [
     { url: baseUrl, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
     { url: `${baseUrl}/shop`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
@@ -15,28 +15,38 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/returns`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
   ]
 
-  try {
-    // Dynamic product pages
-    const { products } = await medusa.store.product.list({ limit: 500 })
-    const productPages: MetadataRoute.Sitemap = (products || []).map((product) => ({
-      url: `${baseUrl}/p/${product.handle}`,
-      lastModified: new Date(product.updated_at || new Date()),
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    }))
+  // Fetch dynamic pages independently — a failure in one does not block the other
+  const [productPages, categoryPages] = await Promise.all([
+    medusa.store.product
+      .list({ limit: 500 })
+      .then(({ products }) =>
+        (products || []).map((product) => ({
+          url: `${baseUrl}/p/${product.handle}`,
+          lastModified: new Date(product.updated_at || new Date()),
+          changeFrequency: "weekly" as const,
+          priority: 0.8,
+        }))
+      )
+      .catch((err) => {
+        console.error("[Sitemap] Failed to fetch products:", err?.message ?? err)
+        return [] as MetadataRoute.Sitemap
+      }),
 
-    // Dynamic category pages
-    const { product_categories } = await medusa.store.category.list({ limit: 100 })
-    const categoryPages: MetadataRoute.Sitemap = (product_categories || []).map((cat) => ({
-      url: `${baseUrl}/c/${cat.handle}`,
-      lastModified: new Date(),
-      changeFrequency: "daily" as const,
-      priority: 0.7,
-    }))
+    medusa.store.category
+      .list({ limit: 100 })
+      .then(({ product_categories }) =>
+        (product_categories || []).map((cat) => ({
+          url: `${baseUrl}/c/${cat.handle}`,
+          lastModified: new Date(),
+          changeFrequency: "daily" as const,
+          priority: 0.7,
+        }))
+      )
+      .catch((err) => {
+        console.error("[Sitemap] Failed to fetch categories:", err?.message ?? err)
+        return [] as MetadataRoute.Sitemap
+      }),
+  ])
 
-    return [...staticPages, ...productPages, ...categoryPages]
-  } catch (error) {
-    console.error("Failed to generate dynamic sitemap entries:", error)
-    return staticPages
-  }
+  return [...staticPages, ...productPages, ...categoryPages]
 }

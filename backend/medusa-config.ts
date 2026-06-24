@@ -1,8 +1,11 @@
 import { defineConfig, loadEnv } from '@medusajs/framework/utils'
+import type { ModuleConfig } from '@medusajs/framework/types'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
-const modules: any[] = [
+// ── Core Medusa modules ─────────────────────────────────────────────────────
+// Typed as ModuleConfig[] to retain compile-time checks on module options.
+const modules: ModuleConfig[] = [
   { resolve: '@medusajs/product' },
   { resolve: '@medusajs/order' },
   { resolve: '@medusajs/cart' },
@@ -36,17 +39,17 @@ const modules: any[] = [
     },
   },
   {
-    resolve: "@medusajs/medusa/payment",
+    resolve: '@medusajs/medusa/payment',
     options: {
       providers: [
         {
-          resolve: "./src/modules/mpesa/provider",
-          id: "mpesa",
+          resolve: './src/modules/mpesa/provider',
+          id: 'mpesa',
           options: {},
         },
         {
-          resolve: "medusa-payment-paystack",
-          id: "paystack",
+          resolve: 'medusa-payment-paystack',
+          id: 'paystack',
           options: {
             secret_key: process.env.PAYSTACK_SECRET_KEY,
           },
@@ -55,30 +58,40 @@ const modules: any[] = [
     },
   },
   {
-    resolve: "./src/modules/mpesa",
+    resolve: './src/modules/mpesa',
   },
 ]
 
-// Dynamically enable MeiliSearch plugin if configured or default to local container
-modules.push({
-  resolve: '@rokmohar/medusa-plugin-meilisearch',
-  options: {
-    config: {
-      host: process.env.MEILISEARCH_HOST || 'http://127.0.0.1:7700',
-      apiKey: process.env.MEILISEARCH_KEY || 'masterKey',
-    },
-    settings: {
-      products: {
-        indexSettings: {
-          searchableAttributes: ['title', 'description', 'handle', 'tags'],
-          filterableAttributes: ['categories', 'tags'],
+// ── MeiliSearch — only loaded when MEILISEARCH_HOST is explicitly set ────────
+// Previously this was unconditionally pushed with a localhost fallback, meaning
+// a missing MeiliSearch container would silently fail during startup or indexing.
+// Now it only activates when the host env var is present.
+if (process.env.MEILISEARCH_HOST) {
+  modules.push({
+    resolve: '@rokmohar/medusa-plugin-meilisearch',
+    options: {
+      config: {
+        host: process.env.MEILISEARCH_HOST,
+        apiKey: process.env.MEILISEARCH_KEY,
+      },
+      settings: {
+        products: {
+          indexSettings: {
+            searchableAttributes: ['title', 'description', 'handle', 'tags'],
+            filterableAttributes: ['categories', 'tags'],
+          },
         },
       },
     },
-  },
-})
+  } as unknown as ModuleConfig)
+} else if (process.env.NODE_ENV !== 'test') {
+  console.info(
+    '[Biashara Hub] MeiliSearch is disabled (MEILISEARCH_HOST not set). ' +
+    'Product search will fall back to Medusa\'s default search.'
+  )
+}
 
-// Enable Cloudflare R2 S3 storage if bucket details are provided
+// ── Cloudflare R2 S3 storage — only loaded when bucket details are provided ─
 if (process.env.CLOUDFLARE_R2_BUCKET) {
   modules.push({
     resolve: '@medusajs/file',
@@ -93,12 +106,12 @@ if (process.env.CLOUDFLARE_R2_BUCKET) {
             access_key_id: process.env.CLOUDFLARE_R2_ACCESS_KEY,
             secret_access_key: process.env.CLOUDFLARE_R2_SECRET_KEY,
             region: 'auto',
-            endpoint: process.env.CLOUDFLARE_R2_ENDPOINT, // Required for uploads to Cloudflare R2
+            endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
           },
         },
       ],
     },
-  })
+  } as unknown as ModuleConfig)
 }
 
 export default defineConfig({
@@ -115,4 +128,3 @@ export default defineConfig({
   },
   modules,
 })
-

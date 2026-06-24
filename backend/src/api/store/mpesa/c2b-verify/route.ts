@@ -1,10 +1,12 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  const { order_id, trans_id } = req.body as { order_id: string; trans_id: string }
+  // `cart_id` is the cart UUID (or order UUID / display_id for post-checkout verifications).
+  // The frontend sends cart.id here. Named `cart_id` to make the semantics explicit.
+  const { cart_id, trans_id } = req.body as { cart_id: string; trans_id: string }
 
-  if (!order_id || !trans_id) {
-    return res.status(400).json({ error: 'Missing order_id or trans_id parameter.' })
+  if (!cart_id || !trans_id) {
+    return res.status(400).json({ error: 'Missing cart_id or trans_id parameter.' })
   }
 
   const query = req.scope.resolve('query')
@@ -29,7 +31,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     // 2. Check if the payment record is already matched
     if (paymentRecord.status === 'matched') {
-      if (paymentRecord.order_id === order_id) {
+      if (paymentRecord.order_id === cart_id) {
         return res.status(200).json({ 
           matched: true, 
           status: 'confirmed', 
@@ -47,9 +49,9 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     // 3. Try matching against an Order ID or Order display_id
     const amountCents = Math.round(paymentRecord.trans_amount * 100)
 
-    // A. Check if order_id is a valid order ID or display_id
+    // A. Check if cart_id is a numeric order display_id (post-checkout verification)
     let order: any = null
-    const displayId = parseInt(order_id, 10)
+    const displayId = parseInt(cart_id, 10)
     if (!isNaN(displayId)) {
       const { data: orders } = await query.graph({
         entity: 'order',
@@ -63,7 +65,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       const { data: orders } = await query.graph({
         entity: 'order',
         fields: ['id', 'display_id', 'total'],
-        filters: { id: order_id } as any,
+        filters: { id: cart_id } as any,
       })
       if (orders && orders.length > 0) order = orders[0]
     }
@@ -110,7 +112,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       }
     }
 
-    // B. Check if order_id is a Cart ID (user has not completed checkout yet)
+    // B. Check if cart_id is a Cart UUID (user has not completed checkout yet)
     const { data: carts } = await query.graph({
       entity: 'cart',
       fields: [
@@ -122,7 +124,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         'payment_collection.payment_sessions.provider_id',
         'payment_collection.payment_sessions.data',
       ],
-      filters: { id: order_id },
+      filters: { id: cart_id },
     })
 
     if (carts && carts.length > 0) {

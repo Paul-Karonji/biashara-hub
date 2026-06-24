@@ -1,5 +1,5 @@
-// @ts-ignore
-import AfricasTalking from "africastalking"
+// Type-checked via src/types/africastalking.d.ts — no @ts-ignore needed
+import AfricasTalking from 'africastalking'
 
 /**
  * Normalizes a Kenyan phone number into E.164 format (+254...)

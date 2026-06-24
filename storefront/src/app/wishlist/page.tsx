@@ -1,46 +1,21 @@
 "use client"
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import React, { useState, useEffect } from "react"
+import React from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Heart, ShoppingCart, Trash2, ArrowRight } from "lucide-react"
 import { formatKES } from "@/lib/formatters"
 import { useCart } from "@/context/CartContext"
+import { useWishlist } from "@/hooks/useWishlist"
 
 export default function WishlistPage() {
-  const [wishlist, setWishlist] = useState<any[]>([])
+  const { items: wishlist, removeFromWishlist } = useWishlist()
   const { addToCart, isLoading } = useCart()
 
-  // Load wishlist from local storage on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("wishlist")
-      if (stored) {
-        try {
-          setWishlist(JSON.parse(stored))
-        } catch (e) {
-          console.error("Failed to parse wishlist:", e)
-        }
-      }
-    }
-  }, [])
-
-  const removeFromWishlist = (productId: string) => {
-    const updated = wishlist.filter((item) => item.id !== productId)
-    setWishlist(updated)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("wishlist", JSON.stringify(updated))
-    }
-  }
-
-  const handleAddToCart = async (item: any) => {
+  const handleAddToCart = async (item: { id: string; title: string; variants?: Array<{ id: string; prices?: Array<{ amount: number; currency_code: string }> }> }) => {
     const variantId = item.variants?.[0]?.id
     if (variantId) {
       await addToCart(variantId, 1)
-      // Optional: remove from wishlist upon adding to cart
-      // removeFromWishlist(item.id);
     }
   }
 
@@ -64,10 +39,11 @@ export default function WishlistPage() {
         {wishlist.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
             {wishlist.map((item) => {
-              const firstVariant = item.variants?.[0]
-              const price = firstVariant?.prices?.find((p: any) => p.currency_code.toLowerCase() === "kes")?.amount 
-                || firstVariant?.prices?.[0]?.amount 
-                || 0
+              const firstVariant = (item as { variants?: Array<{ id: string; prices?: Array<{ amount: number; currency_code: string }> }> }).variants?.[0]
+              const price =
+                firstVariant?.prices?.find((p) => p.currency_code.toLowerCase() === "kes")?.amount ??
+                firstVariant?.prices?.[0]?.amount ??
+                0
 
               return (
                 <div

@@ -192,14 +192,22 @@ export default async function HomePage() {
 
         {products.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {products.slice(0, 8).map((product, idx) => (
-              <ProductCard
-                key={product.id}
-                product={product as any}
-                isNew={idx === 0 || idx === 2}
-                isSale={idx === 1}
-              />
-            ))}
+            {products.slice(0, 8).map((product) => {
+              // Derive badges from product metadata set in the Medusa admin,
+              // NOT from array position which makes every 1st/3rd product "New".
+              const isNew = product.metadata?.is_new === true || product.metadata?.is_new === 'true'
+              const compareAtPrice = Number(product.metadata?.compare_at_price ?? 0)
+              const currentPrice = Number((product as any).variants?.[0]?.prices?.[0]?.amount ?? 0)
+              const isSale = compareAtPrice > 0 && compareAtPrice > currentPrice
+              return (
+                <ProductCard
+                  key={product.id}
+                  product={product as any}
+                  isNew={isNew}
+                  isSale={isSale}
+                />
+              )
+            })}
           </div>
         ) : (
           <div className="w-full bg-surface rounded-xl p-12 border border-border flex flex-col items-center justify-center text-center">

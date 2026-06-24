@@ -61,7 +61,7 @@ export default function MpesaHelpPage() {
             <ol className="list-decimal pl-4 text-xs text-text space-y-2.5 font-sans">
               <li>Open the SIM tool or M-Pesa App on your mobile phone.</li>
               <li>Go to **Lipa Na M-Pesa** &gt; **Buy Goods and Services**.</li>
-              <li>Enter Till Number: <span className="font-bold text-primary font-mono">174379</span>.</li>
+              <li>Enter Till Number: <span className="font-bold text-primary font-mono">{process.env.NEXT_PUBLIC_MPESA_TILL_NUMBER || '174379'}</span>.</li>
               <li>Enter the exact order total displayed on your checkout summary.</li>
               <li>Enter your PIN and complete the transaction.</li>
               <li>Copy the **10-character confirmation code** from Safaricom SMS (e.g., `QND46T89XZ`).</li>

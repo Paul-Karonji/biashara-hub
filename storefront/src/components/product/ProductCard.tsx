@@ -1,11 +1,12 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Star, Heart } from "lucide-react"
 import { formatKES } from "@/lib/formatters"
 import { useCart } from "@/context/CartContext"
+import { useWishlist, type WishlistItem } from "@/hooks/useWishlist"
 
 interface ProductCardProps {
   product: {
@@ -27,56 +28,21 @@ interface ProductCardProps {
 
 export function ProductCard({ product, isNew, isSale }: ProductCardProps) {
   const { addToCart, isLoading } = useCart()
-  const [isWishlisted, setIsWishlisted] = useState(false)
+  const { isWishlisted, toggleWishlist } = useWishlist(product.id)
   const firstVariant = product.variants?.[0]
   const firstVariantId = firstVariant?.id
 
-  // Check if item is wishlisted on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("wishlist")
-      if (stored) {
-        try {
-          const list = JSON.parse(stored)
-          setIsWishlisted(list.some((item: any) => item.id === product.id))
-        } catch (e) {
-          console.error(e)
-        }
-      }
-    }
-  }, [product.id])
+  const wishlistItem: WishlistItem = {
+    id: product.id,
+    title: product.title,
+    handle: product.handle,
+    thumbnail: product.thumbnail ?? null,
+  }
 
-  const toggleWishlist = (e: React.MouseEvent) => {
+  const handleToggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
-    if (typeof window === "undefined") return
-
-    const stored = localStorage.getItem("wishlist")
-    let list = []
-    if (stored) {
-      try {
-        list = JSON.parse(stored)
-      } catch (e) {
-        console.error(e)
-      }
-    }
-
-    let updatedList = []
-    if (isWishlisted) {
-      updatedList = list.filter((item: any) => item.id !== product.id)
-      setIsWishlisted(false)
-    } else {
-      updatedList = [...list, {
-        id: product.id,
-        title: product.title,
-        handle: product.handle,
-        thumbnail: product.thumbnail,
-        variants: product.variants
-      }]
-      setIsWishlisted(true)
-    }
-    localStorage.setItem("wishlist", JSON.stringify(updatedList))
+    toggleWishlist(wishlistItem)
   }
 
   const getDisplayPrice = () => {
@@ -111,9 +77,9 @@ export function ProductCard({ product, isNew, isSale }: ProductCardProps) {
         {/* Wishlist toggle button */}
         <button
           type="button"
-          onClick={toggleWishlist}
+          aria-label={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
+          onClick={handleToggleWishlist}
           className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-text border border-border flex items-center justify-center cursor-pointer transition-all hover:scale-105 hover:shadow-ambient"
-          title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
         >
           <Heart size={14} className={isWishlisted ? "fill-danger text-danger" : "text-text"} />
         </button>
@@ -139,16 +105,27 @@ export function ProductCard({ product, isNew, isSale }: ProductCardProps) {
           {product.title}
         </h3>
         
-        {/* Rating stars */}
-        <div className="flex items-center gap-0.5 mt-2 mb-3">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Star
-              key={star}
-              size={12}
-              className="fill-gold text-gold"
-            />
-          ))}
-        </div>
+        {/* Rating stars — only shown when the product has real rating metadata */}
+        {(product.metadata?.rating_average || product.metadata?.review_count) && (
+          <div className="flex items-center gap-1.5 mt-2 mb-3">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                size={12}
+                className={
+                  star <= Math.round(Number(product.metadata?.rating_average ?? 0))
+                    ? "fill-gold text-gold"
+                    : "fill-muted/30 text-muted/30"
+                }
+              />
+            ))}
+            {product.metadata?.review_count && (
+              <span className="text-[10px] text-muted font-medium">
+                ({product.metadata.review_count})
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Pricing & Add to Cart button */}
         <div className="mt-auto pt-2 flex flex-col gap-3">

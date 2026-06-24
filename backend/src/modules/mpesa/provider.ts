@@ -8,8 +8,8 @@ import axios from 'axios'
 import { DARAJA_BASE_URL, DARAJA_ENDPOINTS } from './constants'
 import { getAccessToken } from './token'
 
-// In-memory idempotency check for STK pushes: map cartId -> { checkoutRequestId, timestamp }
-const stkPushMap = new Map<string, { checkoutRequestId: string; timestamp: number }>()
+// NOTE: Idempotency is handled durably in the DB via initiate/route.ts (last_stk_attempt_at).
+// A module-level in-memory map was removed because it resets on restart and breaks in multi-process clusters.
 
 export class MpesaPaymentProvider extends AbstractPaymentProvider {
   static identifier = 'mpesa'
@@ -58,15 +58,8 @@ export class MpesaPaymentProvider extends AbstractPaymentProvider {
   async initiateSTKPush(phone: string, amount: number, cartId: string) {
     const normalizedPhone = this.normalizePhone(phone)
     
-    // 1. Idempotency Check (Check if there is a pending request in the last 5 minutes)
-    const existingRequest = stkPushMap.get(cartId)
-    if (existingRequest && Date.now() - existingRequest.timestamp < 5 * 60 * 1000) {
-      console.log(`STK Push already initiated for cart ${cartId} in the last 5 minutes. Returning cached checkoutRequestId: ${existingRequest.checkoutRequestId}`)
-      return {
-        CheckoutRequestID: existingRequest.checkoutRequestId,
-        isDuplicate: true,
-      }
-    }
+    // Idempotency is checked by the caller (initiate/route.ts) before reaching this method.
+    // No in-memory deduplication here — it would be lost on restart and broken in multi-process deployments.
 
     const token = await getAccessToken()
     const { password, timestamp } = this.getPasswordAndTimestamp()
@@ -99,13 +92,6 @@ export class MpesaPaymentProvider extends AbstractPaymentProvider {
         headers: { Authorization: `Bearer ${token}` },
       })
 
-      if (data.ResponseCode === '0') {
-        // Cache request in idempotency map
-        stkPushMap.set(cartId, {
-          checkoutRequestId: data.CheckoutRequestID,
-          timestamp: Date.now(),
-        })
-      }
 
       return data
     } catch (error: any) {

@@ -10,18 +10,30 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return res.status(500).json({ error: 'Server configuration error' })
   }
 
-  // 1. Verify Signature using rawBody buffer if available
+  // 1. Verify Signature using the raw, unmodified request body.
+  //
+  // IMPORTANT: `rawBody` must be present. It is populated when
+  // `bodyParser: { preserveRawBody: true }` is set for /hooks/* in middlewares.ts.
+  // We must NOT fall back to JSON.stringify(req.body): Express may reorder
+  // keys and modify whitespace, so the HMAC over the re-serialised body will
+  // never match Paystack's signature — causing a 401 loop of infinite retries.
   const rawBody = (req as any).rawBody
-  const payload = rawBody 
-    ? (Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody)) 
-    : JSON.stringify(req.body)
+  if (!rawBody) {
+    console.error(
+      '[Paystack Webhook] rawBody is missing. ' +
+      'Ensure `bodyParser: { preserveRawBody: true }` is set for /hooks/* in src/api/middlewares.ts.'
+    )
+    return res.status(400).json({ error: 'Webhook configuration error: raw body unavailable.' })
+  }
+
+  const payload = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody)
 
   const hash = createHmac('sha512', secretKey)
     .update(payload)
     .digest('hex')
 
   if (hash !== paystackSignature) {
-    console.warn('Paystack signature verification failed.')
+    console.warn('[Paystack Webhook] Signature verification failed. Possible replay or spoofed request.')
     return res.status(401).json({ error: 'Invalid signature' })
   }
 

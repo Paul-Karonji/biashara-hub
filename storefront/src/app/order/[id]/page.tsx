@@ -98,7 +98,7 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
             <div className="p-4 bg-white border border-amber-200/60 rounded-xl space-y-2 text-xs text-text font-medium">
               <p>1. Open M-Pesa on your phone.</p>
               <p>2. Select <strong>Lipa Na M-Pesa</strong> &gt; <strong>Buy Goods and Services</strong>.</p>
-              <p>3. Enter Till Number: <strong className="text-primary font-bold">174379</strong>.</p>
+              <p>3. Enter Till Number: <strong className="text-primary font-bold">{process.env.NEXT_PUBLIC_MPESA_TILL_NUMBER || '174379'}</strong>.</p>
               <p>4. Enter exact amount: <strong className="text-primary font-bold">{formatKES(total)}</strong>.</p>
               <p>5. Complete the transaction by entering your M-Pesa PIN.</p>
             </div>

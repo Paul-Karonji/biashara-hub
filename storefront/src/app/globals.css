@@ -7,8 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Note: Geist Mono is not loaded in layout.tsx. Using system monospace stack instead. */
+  --font-mono: 'Courier New', 'Consolas', 'Menlo', 'Monaco', monospace;
   --font-serif: var(--font-serif);
   --font-heading: var(--font-serif);
   

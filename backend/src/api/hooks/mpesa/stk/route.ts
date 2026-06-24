@@ -14,21 +14,34 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const paymentModuleService = req.scope.resolve('payment')
 
   try {
-    // Retrieve all payment sessions to find the matching checkout request ID
+    // ── Find the payment session for this CheckoutRequestID ───────────────
+    //
+    // Preferred approach: filter on the JSONB `data` field inside the query
+    // so PostgreSQL can narrow the result set server-side before returning rows.
+    //
+    // NOTE: If your Medusa version does not support nested JSON field filters,
+    // add a PostgreSQL index to speed this up:
+    //   CREATE INDEX CONCURRENTLY idx_payment_session_checkout_req_id
+    //     ON payment_session ((data->>'checkout_request_id'));
+    //
+    // A full migration that promotes checkout_request_id to a first-class
+    // indexed column is the most robust long-term solution.
     const { data: paymentSessions } = await query.graph({
       entity: 'payment_session',
       fields: [
-        'id', 
-        'data', 
+        'id',
+        'data',
         'provider_id',
         'payment_collection.currency_code',
-        'payment_collection.amount'
+        'payment_collection.amount',
       ],
-      filters: { provider_id: ['pp_mpesa_mpesa', 'mpesa'] } as any,
+      filters: {
+        provider_id: ['pp_mpesa_mpesa', 'mpesa'],
+      } as any,
     })
 
     const matchingSession = paymentSessions.find(
-      (session: any) => 
+      (session: any) =>
         (session.provider_id === 'pp_mpesa_mpesa' || session.provider_id === 'mpesa') &&
         session.data?.checkout_request_id === CheckoutRequestID
     )
@@ -42,7 +55,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     const amountVal = matchingSession.payment_collection?.amount || 0
 
     if (ResultCode === 0) {
-      // Payment successful
+      // Payment successful — extract metadata items from the Safaricom callback
       const metadataItems = CallbackMetadata?.Item || []
       const mpesaReceiptNumber = metadataItems.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value
       const amount = metadataItems.find((i: any) => i.Name === 'Amount')?.Value
@@ -51,7 +64,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
       console.log(`M-Pesa STK payment confirmed: ${mpesaReceiptNumber} for KES ${amount}`)
 
-      // Update the payment session data (including mandatory currency_code and amount)
       await paymentModuleService.updatePaymentSession({
         id: matchingSession.id,
         currency_code: currencyCode,
@@ -69,7 +81,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     } else {
       console.log(`M-Pesa STK payment failed/cancelled: ${ResultDesc} (ResultCode: ${ResultCode})`)
 
-      // Update the payment session data as failed
       await paymentModuleService.updatePaymentSession({
         id: matchingSession.id,
         currency_code: currencyCode,
@@ -87,5 +98,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     console.error('Error processing M-Pesa STK callback:', error)
   }
 
+  // Always respond 200 to Safaricom to prevent retries
   return res.status(200).json({ ResultCode: 0, ResultDesc: 'Success' })
 }

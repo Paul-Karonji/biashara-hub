@@ -94,7 +94,7 @@ export default function MpesaC2bVerifyPage({ params }: VerifyPageProps) {
             <p className="text-xs text-text leading-relaxed">
               1. Open M-Pesa menu or Lipa Na M-Pesa on your phone.<br />
               2. Select **Buy Goods and Services**.<br />
-              3. Enter Till Number: <span className="font-bold text-primary">174379</span>.<br />
+              3. Enter Till Number: <span className="font-bold text-primary">{process.env.NEXT_PUBLIC_MPESA_TILL_NUMBER || '174379'}</span>.<br />
               4. Enter the exact order total amount.<br />
               5. Enter your PIN and complete payment.
             </p>

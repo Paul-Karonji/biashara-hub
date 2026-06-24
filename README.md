@@ -1,142 +1,413 @@
-# Biashara Hub — Headless Kenyan Ecommerce Platform Monorepo
+# Biashara Hub
 
-Biashara Hub is a production-grade, open-source headless ecommerce template customized specifically for the Kenyan market. It combines the headless commerce power of **Medusa.js v2** with a high-performance **Next.js 16 (App Router)** storefront in a **pnpm monorepo** architecture.
+> **Production-grade headless e-commerce for the Kenyan market.**  
+> Built on Medusa.js v2 + Next.js App Router in a pnpm monorepo.
 
-The platform is designed to eliminate high vendor platform fees and vendor lock-in, placing full ownership of transactional data, customer profiles, and source code in the hands of the business.
+Biashara Hub eliminates high SaaS platform fees and vendor lock-in by giving you full ownership of your transactional data, customer profiles, and source code — with native support for the payment rails Kenyan shoppers actually use.
 
 ---
 
-## Key Features Implemented
+## Table of Contents
 
-*   **Native Kenyan Localisation:** Default currency set to **KES** (with USD fallback), standard tax regions configured to automatically apply **16% VAT**, and seeded regional category maps.
-*   **Kenyan Payment Channels:** Native **Lipa Na M-Pesa STK Push** payment flow designed directly into the checkout screens (with Safaricom webhook integration ready).
-*   **Transactional Notifications:** 
-    *   **SMS (Africa's Talking):** Automatic order validation alerts and shipping updates with phone normalization logic (e.g. `07...` or `01...` to international `+254...`).
-    *   **Email (Resend):** Fully styled HTML templates for user welcome notifications, order invoices, and shipping tracking receipts.
-*   **Integrated Business Analytics:** 
-    *   **Storefront Event Tracking:** PostHog captures customer conversion funnels (`product_viewed`, `add_to_cart`, `checkout_started`, `payment_method_selected`, `order_completed`, `search_performed`).
-    *   **Metabase Dashboards:** Direct business intelligence database dashboards configured for inventory tracking, low stock alerts, revenue audits, and customer registrations.
-*   **Search & Media Engine:** MeiliSearch typo-tolerant search queries and Cloudflare R2 egress-free media storage configurations pre-scaffolded.
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Repository Structure](#repository-structure)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [Running the Stack](#running-the-stack)
+- [Payment Integrations](#payment-integrations)
+- [Notifications](#notifications)
+- [Analytics & Dashboards](#analytics--dashboards)
+- [Design System](#design-system)
+- [Code Quality](#code-quality)
+- [Deployment](#deployment)
+- [Metabase SQL Reference](#metabase-sql-reference)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Features
+
+### 🇰🇪 Kenyan-First Commerce
+- **KES currency** as default (USD fallback available)
+- **16% VAT** applied automatically via Medusa tax regions
+- **47 Kenyan counties** pre-loaded in the checkout address form
+- Phone number normalisation (`07…` / `01…` → international `+254…`)
+
+### 💳 Payment Channels
+| Method | Flow | Status |
+|--------|------|--------|
+| **Lipa Na M-Pesa STK Push** | Real-time prompt to customer's phone, polling for authorization | ✅ Production |
+| **M-Pesa C2B Manual Till** | Customer pays to till number, enters 10-char code for server-side verification | ✅ Production |
+| **Paystack (Visa/MC/AMEX)** | Hosted card checkout with redirect and webhook confirmation | ✅ Production |
+
+### 📦 Catalogue & Inventory
+- Full product/variant/inventory management via Medusa Admin (`/app`)
+- MeiliSearch typo-tolerant storefront search (optional, env-gated)
+- Cloudflare R2 media storage scaffolded (egress-free)
+- Stock badge on product cards driven live from `inventory_quantity`
+
+### 📣 Notifications
+- **SMS** via Africa's Talking — order confirmation + shipping updates
+- **Email** via Resend — welcome emails, order invoices, shipping receipts with styled HTML templates
+
+### 📊 Analytics
+- **PostHog** conversion funnel tracking (`checkout_started`, `add_to_cart`, `order_completed`, …)
+- **Metabase** BI dashboards — revenue, best sellers, inventory alerts, payment split
+
+### 🔐 Security (hardened in latest audit)
+- Safaricom IP allowlist middleware on M-Pesa webhook routes
+- Redis-backed token cache with sliding-window rate limiting on STK initiation
+- Metabase connects via a dedicated read-only Postgres user (`metabase_ro`)
+- No secrets in source — all keys via environment variables
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Commerce engine | [Medusa.js](https://medusajs.com) | 2.15.5 |
+| Storefront | [Next.js](https://nextjs.org) App Router | 15.x |
+| Language | TypeScript | 5.6 |
+| Package manager | pnpm (workspaces) | 11.7 |
+| Database | PostgreSQL | 15 |
+| Cache / sessions | Redis | 7 |
+| Search | MeiliSearch | 1.x (optional) |
+| Analytics | PostHog, Metabase | — |
+| SMS | Africa's Talking | — |
+| Email | Resend | — |
+| Storage | Cloudflare R2 (S3-compatible) | — |
+| Payments | M-Pesa Daraja, Paystack | — |
+| Containers | Docker Compose | — |
 
 ---
 
 ## Repository Structure
 
 ```
-/biashara-hub
-├── package.json                 # Monorepo scripts & package workspaces definitions
-├── pnpm-workspace.yaml          # pnpm package workspace bindings
-├── docker-compose.yml           # Runs local Postgres, Redis, MeiliSearch, and Metabase
+biashara-hub/
+├── package.json                  # Monorepo root scripts
+├── pnpm-workspace.yaml           # Workspace definitions
+├── docker-compose.yml            # Postgres, Redis, MeiliSearch, Metabase
 │
-├── /backend                     # Medusa.js v2 Commerce Engine
-│   ├── medusa-config.ts         # Medusa server module registrations & CORS setup
-│   ├── /src
-│   │   ├── /subscribers         # Event subscribers (customer-created, order-placed, order-shipped)
-│   │   ├── /lib/sms.ts          # Africa's Talking API & phone number normalizer
-│   │   └── /migration-scripts   # Kenyan store database seeding scripts
-│   └── .env.example             # Template for payment keys, databases, & storage tokens
+├── backend/                      # Medusa.js v2 commerce engine
+│   ├── medusa-config.ts          # Module registrations, CORS, plugins
+│   ├── .env.example              # All required backend env vars documented
+│   └── src/
+│       ├── api/store/mpesa/      # M-Pesa STK + C2B custom API routes
+│       ├── subscribers/          # order-placed, order-shipped event handlers
+│       ├── lib/
+│       │   ├── sms.ts            # Africa's Talking SMS + phone normaliser
+│       │   ├── email.ts          # Resend email templates
+│       │   └── redis.ts          # Shared Redis client
+│       ├── types/                # africastalking.d.ts and other ambient types
+│       └── migration-scripts/    # Kenyan store seed data
 │
-├── /storefront                  # Next.js 16 App Router customer-facing website
-│   ├── /src/app                 # App routes (Shop, Cart, Checkout, Account)
-│   ├── /src/components          # Styled Vanilla CSS design system components
-│   └── /src/context             # React Context APIs (Cart state persistence)
+├── storefront/                   # Next.js App Router customer storefront
+│   ├── .env.example              # All required storefront env vars documented
+│   └── src/
+│       ├── app/                  # Routes: shop, cart, checkout, account, orders
+│       │   └── checkout/
+│       │       └── components/   # CheckoutStepIndicator, CheckoutSummary, MpesaOverlay
+│       ├── components/           # Layout, product cards, cart drawer
+│       ├── context/CartContext   # Server-synced cart state
+│       ├── hooks/useWishlist.ts  # Shared localStorage wishlist hook
+│       └── lib/                  # medusa.ts, formatters, analytics, metadata
 │
-└── /docs                        # Detailed specifications, guides, and checklists
-    ├── design.md                # Inter Typography, Navy/Gold color weight guidelines
-    ├── KE_Ecommerce_Spec_v1.md  # Architectural specification by build phase
-    └── KE_Ecommerce_Phase_Docs_v1.md # Technical reference manual & checklist
+├── docker/
+│   └── postgres-init/
+│       └── 01-metabase-readonly.sh  # Creates metabase_ro DB user on first run
+│
+└── docs/
+    ├── KE_Ecommerce_Spec_v1.md       # Architectural spec by build phase
+    ├── KE_Ecommerce_Phase_Docs_v1.md # Technical reference & checklist
+    ├── PHASE6_ADDENDUM_v1.1.md       # Phase 6 additions
+    └── design.md                     # Typography & colour guidelines
 ```
 
 ---
 
-## Local Development Setup
+## Quick Start
 
-### 1. Prerequisites
-Ensure you have the following installed on your machine:
-*   **Node.js** v20.x or later (LTS recommended)
-*   **pnpm** v9.x or later (`npm install -g pnpm`)
-*   **Docker Desktop** (for PostgreSQL, Redis, and MeiliSearch containers)
+### Prerequisites
 
-### 2. Services Initialization
-Clone the repository, install all dependencies, and spin up backing services inside local containers:
+- **Node.js** ≥ 20 LTS
+- **pnpm** ≥ 9 &nbsp;(`npm install -g pnpm`)
+- **Docker Desktop** (Postgres, Redis, MeiliSearch, Metabase)
+
+### 1 — Clone & install
+
 ```bash
-# Install workspace dependencies
+git clone https://github.com/Paul-Karonji/biashara-hub.git
+cd biashara-hub
 pnpm install
+```
 
-# Start PostgreSQL, Redis, MeiliSearch, and Metabase containers
+### 2 — Start backing services
+
+```bash
 docker compose up -d
 ```
 
-### 3. Environment Variables
-1.  Navigate to `/backend`, copy `.env.example` to `.env`, and populate local configuration keys:
-    ```bash
-    cd backend
-    cp .env.example .env
-    ```
-2.  Navigate to `/storefront`, copy `.env.example` to `.env`, and map local API hosts:
-    ```bash
-    cd ../storefront
-    cp .env.example .env
-    ```
+This starts:
 
-### 4. Database Seeding & User Setup
-Run Medusa migrations and execute the custom Kenyan seed script to populate default categories, product listings, shipping values, and VAT parameters:
+| Service | Port | Notes |
+|---------|------|-------|
+| PostgreSQL | 5432 | Primary DB; `metabase_ro` read-only user created automatically |
+| Redis | 6379 | Token cache + rate limiting |
+| MeiliSearch | 7700 | Storefront search (optional) |
+| Metabase | 3001 | BI dashboards |
+
+### 3 — Configure environment variables
+
 ```bash
-cd ../backend
+# Backend
+cp backend/.env.example backend/.env
 
-# Run migrations
+# Storefront
+cp storefront/.env.example storefront/.env.local
+```
+
+See [Environment Variables](#environment-variables) for all required keys.
+
+### 4 — Seed the database
+
+```bash
+# Run Medusa migrations
+cd backend
 pnpm medusa db:migrate
 
-# Seed initial store data (KES currencies, Nairobi warehouse, 16% VAT, products)
+# Seed Kenyan store data (KES, 16% VAT, categories, products, shipping)
 pnpm medusa exec src/migration-scripts/initial-data-seed.ts
 
-# Create your first Admin account for the dashboard
-pnpm medusa user -e admin@biasharahub.co.ke -p yourSecurePassword
+# Create your first admin account
+pnpm medusa user -e admin@example.com -p yourSecurePassword
 ```
 
-### 5. Running the Monorepo
-Return to the root folder and boot up the API backend and storefront applications concurrently:
+### 5 — Start development servers
+
 ```bash
-# From the root directory
-pnpm dev:backend
-pnpm dev:storefront
+# From the root — run both concurrently
+pnpm dev:backend      # → http://localhost:9000
+pnpm dev:storefront   # → http://localhost:3000
 ```
-*   **Next.js Storefront:** [http://localhost:3000](http://localhost:3000)
-*   **Medusa Engine Core:** [http://localhost:9000](http://localhost:9000)
-*   **Medusa Admin Dashboard:** [http://localhost:9000/app](http://localhost:9000/app) *(Login using the admin credentials created in Step 4)*
-*   **Metabase Dashboard Panel:** [http://localhost:3001](http://localhost:3001)
+
+| URL | Description |
+|-----|-------------|
+| http://localhost:3000 | Customer storefront |
+| http://localhost:9000 | Medusa API |
+| http://localhost:9000/app | Medusa Admin dashboard |
+| http://localhost:3001 | Metabase BI |
 
 ---
 
-## System Verification Checks
-Before deploying code changes, run these checks to ensure codebase stability:
-*   **Run Linter:** `pnpm run lint` *(Checks for code style anomalies)*
-*   **Type Checker:** `pnpm run type-check` *(Validates TypeScript files compiles cleanly)*
+## Environment Variables
+
+### Backend (`backend/.env`)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | ✅ | `postgresql://user:pass@localhost:5432/biashara` |
+| `REDIS_URL` | ✅ | `redis://localhost:6379` |
+| `JWT_SECRET` | ✅ | Random 64-char string |
+| `COOKIE_SECRET` | ✅ | Random 64-char string |
+| `STORE_CORS` | ✅ | e.g. `http://localhost:3000` |
+| `MPESA_CONSUMER_KEY` | ✅ | Safaricom Daraja app consumer key |
+| `MPESA_CONSUMER_SECRET` | ✅ | Safaricom Daraja app consumer secret |
+| `MPESA_PASSKEY` | ✅ | Lipa Na M-Pesa online passkey |
+| `MPESA_SHORTCODE` | ✅ | STK Push business shortcode |
+| `MPESA_CALLBACK_URL` | ✅ | Public HTTPS URL for Safaricom callbacks |
+| `PAYSTACK_SECRET_KEY` | ✅ | `sk_live_…` or `sk_test_…` |
+| `AT_API_KEY` | ✅ | Africa's Talking API key |
+| `AT_USERNAME` | ✅ | Africa's Talking username (`sandbox` for dev) |
+| `AT_SENDER_ID` | ⬜ | Custom SMS sender ID (optional) |
+| `RESEND_API_KEY` | ✅ | Resend email API key |
+| `S3_ACCESS_KEY_ID` | ⬜ | Cloudflare R2 / AWS S3 access key |
+| `S3_SECRET_ACCESS_KEY` | ⬜ | Cloudflare R2 / AWS S3 secret key |
+| `S3_BUCKET` | ⬜ | S3/R2 bucket name |
+| `S3_ENDPOINT` | ⬜ | R2 endpoint URL (omit for AWS) |
+| `MEILISEARCH_HOST` | ⬜ | e.g. `http://localhost:7700` (omits search if unset) |
+| `MEILISEARCH_API_KEY` | ⬜ | MeiliSearch master key |
+| `METABASE_RO_PASSWORD` | ✅ | Password for the `metabase_ro` Postgres user |
+
+### Storefront (`storefront/.env.local`)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_MEDUSA_BACKEND_URL` | ✅ | `http://localhost:9000` |
+| `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` | ✅ | Publishable API key from Medusa Admin |
+| `NEXT_PUBLIC_MPESA_TILL_NUMBER` | ✅ | Business till number shown on checkout |
+| `NEXT_PUBLIC_POSTHOG_KEY` | ⬜ | PostHog project API key |
+| `NEXT_PUBLIC_POSTHOG_HOST` | ⬜ | `https://app.posthog.com` |
 
 ---
 
-## Visual Identity & Spacing Rules
-*   **Palette weights:** **70%** White background surfaces (`#FFFFFF` / `#F8FAFC`), **20%** Navy/Primary blue values (`#0A2D6B` / `#0F3D91`), and **10%** Accent Gold highlights (`#D4A017` / `#F4D57E`).
-*   **Typographical rules:** Utilizes **Inter** font with a maximum content container layout width of `1200px` (tested down to `320px` responsive breakpoints).
-*   **Micro-animations:** All button hover scales and drawer sliders use a standard **200ms ease** transition delay.
+## Running the Stack
+
+```bash
+# Root convenience scripts (run from /biashara-hub)
+pnpm dev:backend      # medusa develop
+pnpm dev:storefront   # next dev
+
+# Backend only
+cd backend && pnpm dev
+
+# Storefront only
+cd storefront && pnpm dev
+
+# Build for production
+cd backend && pnpm build
+cd storefront && pnpm build
+```
 
 ---
 
-## Metabase Dashboard SQL Reference
+## Payment Integrations
 
-Metabase runs on port `3001` and connects directly to the local PostgreSQL database. Use these pre-built SQL queries to populate the five default panels inside the Metabase dashboard interface:
+### Lipa Na M-Pesa STK Push
+
+1. Customer enters their phone number at checkout.
+2. Storefront calls `POST /store/mpesa/initiate` → backend triggers Safaricom Daraja STK Push API.
+3. Safaricom sends a PIN prompt to the customer's phone.
+4. Backend polls `GET /store/mpesa/status/:checkoutRequestId` every 3 s (up to 120 s timeout).
+5. On Safaricom webhook confirmation, order is completed automatically.
+
+Rate limiting: **3 requests / 5 min per phone**, **1 request / 30 s per cart**.
+
+### M-Pesa C2B Manual Till
+
+1. Customer pays to the business till number.
+2. Customer enters the 10-character M-Pesa transaction code at checkout.
+3. Storefront calls `POST /store/mpesa/c2b-verify` → backend matches the code against Safaricom C2B callback data stored in Redis.
+4. On match, cart is completed.
+
+### Paystack (Card)
+
+1. Backend initialises a Paystack payment session and receives an `authorization_url`.
+2. Customer is redirected to Paystack's hosted checkout page.
+3. On payment, Paystack posts to the webhook endpoint; backend completes the cart.
+
+---
+
+## Notifications
+
+### SMS (Africa's Talking)
+Triggered by Medusa subscribers in `backend/src/subscribers/`:
+
+| Event | Message |
+|-------|---------|
+| `order.placed` | Order confirmation with total and reference ID |
+| `order.shipment_created` | Dispatch notification with tracking info |
+
+Kenyan phone numbers are normalised automatically:
+```
+07XXXXXXXX  →  +25407XXXXXXXX
+01XXXXXXXX  →  +25401XXXXXXXX
+```
+
+### Email (Resend)
+| Template | Trigger |
+|----------|---------|
+| Welcome email | `customer.created` |
+| Order invoice | `order.placed` |
+| Shipping receipt | `order.shipment_created` |
+
+---
+
+## Analytics & Dashboards
+
+### PostHog (Storefront)
+Events tracked automatically:
+
+```
+product_viewed      add_to_cart         checkout_started
+payment_selected    order_completed     search_performed
+```
+
+Set `NEXT_PUBLIC_POSTHOG_KEY` to enable. Events fire only in production builds.
+
+### Metabase (BI Dashboards)
+
+Metabase runs on [http://localhost:3001](http://localhost:3001) and connects via the read-only `metabase_ro` Postgres user (created automatically by the Docker init script).
+
+See [Metabase SQL Reference](#metabase-sql-reference) below for pre-built dashboard queries.
+
+---
+
+## Design System
+
+**Palette (70 / 20 / 10 rule)**
+
+| Role | Colour | Usage |
+|------|--------|-------|
+| Background | `#FFFFFF` / `#F8FAFC` | 70% — surfaces, cards |
+| Primary | `#0A2D6B` / `#0F3D91` Navy | 20% — headings, CTAs |
+| Accent | `#D4A017` / `#F4D57E` Gold | 10% — highlights, badges |
+
+**Typography** — [Inter](https://fonts.google.com/specimen/Inter) loaded via `next/font`
+
+**Motion** — all hover/transition effects use `200ms ease`
+
+**Layout** — max content width `1200px`, tested to `320px`
+
+**Accessibility** — WCAG AA contrast (≥ 4.5:1), touch targets ≥ 44px, `prefers-reduced-motion` respected
+
+---
+
+## Code Quality
+
+```bash
+# From any workspace
+pnpm lint          # ESLint (warns on `any` usage, errors in src/lib/ and src/hooks/)
+pnpm type-check    # tsc --noEmit
+```
+
+The ESLint config (`storefront/eslint.config.mjs`) enforces:
+- `@typescript-eslint/no-explicit-any: warn` project-wide
+- `@typescript-eslint/no-explicit-any: error` in `src/lib/` and `src/hooks/` (shared code)
+
+---
+
+## Deployment
+
+### Storefront → Vercel (recommended)
+```bash
+cd storefront
+vercel deploy
+```
+Set all `NEXT_PUBLIC_*` env vars in the Vercel project dashboard.
+
+### Backend → Railway / Render / VPS
+```bash
+cd backend
+pnpm build
+pnpm start     # medusa start
+```
+
+Ensure `DATABASE_URL`, `REDIS_URL`, and all payment keys are set in your hosting environment.
+
+### Docker (production)
+The `docker-compose.yml` is configured for local development. For production, use managed Postgres + Redis and remove the local service definitions. The Metabase service can be kept as-is and pointed at your managed DB.
+
+> **First-run note:** The `docker/postgres-init/01-metabase-readonly.sh` script runs only once (on initial volume creation) to create the `metabase_ro` database user. On an existing DB, run the SQL in that file manually.
+
+---
+
+## Metabase SQL Reference
 
 <details>
-<summary><b>Click to expand SQL queries</b></summary>
+<summary><b>Expand dashboard queries</b></summary>
 
-### 1. Sales Overview
+### Sales Overview
 
-#### Daily Revenue (Last 30 Days)
+**Daily Revenue — Last 30 Days**
 ```sql
-SELECT 
-  DATE(created_at) AS order_date, 
-  SUM(total) / 100.0 AS revenue_kes,
-  COUNT(id) AS order_count
+SELECT
+  DATE(created_at)      AS order_date,
+  SUM(total) / 100.0    AS revenue_kes,
+  COUNT(id)             AS order_count
 FROM "order"
 WHERE created_at >= NOW() - INTERVAL '30 days'
   AND status != 'canceled'
@@ -144,45 +415,41 @@ GROUP BY DATE(created_at)
 ORDER BY order_date DESC;
 ```
 
-#### Order Status Breakdown
+**Order Status Breakdown**
 ```sql
-SELECT 
-  status, 
-  COUNT(id) AS order_count
+SELECT status, COUNT(id) AS order_count
 FROM "order"
 GROUP BY status;
 ```
 
-#### Average Order Value (AOV)
+**Average Order Value**
 ```sql
-SELECT 
-  AVG(total) / 100.0 AS average_order_value_kes
+SELECT AVG(total) / 100.0 AS aov_kes
 FROM "order"
 WHERE status != 'canceled';
 ```
 
 ---
 
-### 2. Top Products
+### Top Products
 
-#### Best Sellers by Quantity
+**Best Sellers by Quantity**
 ```sql
-SELECT 
+SELECT
   title,
-  SUM(quantity) AS total_quantity,
-  SUM(unit_price * quantity) / 100.0 AS total_revenue_kes
+  SUM(quantity)                         AS total_units_sold,
+  SUM(unit_price * quantity) / 100.0    AS total_revenue_kes
 FROM order_line_item
 GROUP BY title
-ORDER BY total_quantity DESC
+ORDER BY total_units_sold DESC
 LIMIT 10;
 ```
 
-#### Best Sellers by Revenue
+**Best Sellers by Revenue**
 ```sql
-SELECT 
+SELECT
   title,
-  SUM(quantity) AS total_quantity,
-  SUM(unit_price * quantity) / 100.0 AS total_revenue_kes
+  SUM(unit_price * quantity) / 100.0    AS total_revenue_kes
 FROM order_line_item
 GROUP BY title
 ORDER BY total_revenue_kes DESC
@@ -191,57 +458,52 @@ LIMIT 10;
 
 ---
 
-### 3. Customer Insights
+### Customer Insights
 
-#### New vs Returning Customers
+**New vs Returning Customers**
 ```sql
 WITH customer_orders AS (
-  SELECT 
-    customer_id,
-    COUNT(id) AS order_count
+  SELECT customer_id, COUNT(id) AS order_count
   FROM "order"
   WHERE customer_id IS NOT NULL
   GROUP BY customer_id
 )
-SELECT 
-  CASE WHEN order_count > 1 THEN 'Returning' ELSE 'One-time' END AS customer_type,
+SELECT
+  CASE WHEN order_count > 1 THEN 'Returning' ELSE 'First-time' END AS type,
   COUNT(customer_id) AS customer_count
 FROM customer_orders
 GROUP BY 1;
 ```
 
-#### Customer Registrations Trend
+**Registration Trend**
 ```sql
-SELECT 
-  DATE(created_at) AS registration_date, 
-  COUNT(id) AS registered_count
+SELECT DATE(created_at) AS date, COUNT(id) AS registrations
 FROM customer
 GROUP BY DATE(created_at)
-ORDER BY registration_date DESC;
+ORDER BY date DESC;
 ```
 
 ---
 
-### 4. Inventory Alerts
+### Inventory Alerts
 
-#### Low Stock Items (Under 10 Units)
+**Low Stock (< 10 units)**
 ```sql
-SELECT 
+SELECT
   ii.sku,
-  pv.title AS variant_title,
-  (il.stocked_quantity - il.reserved_quantity) AS available_quantity
+  pv.title                                              AS variant,
+  (il.stocked_quantity - il.reserved_quantity)          AS available
 FROM inventory_item ii
 JOIN inventory_level il ON ii.id = il.inventory_item_id
 LEFT JOIN product_variant_inventory_item pvii ON ii.id = pvii.inventory_item_id
 LEFT JOIN product_variant pv ON pvii.variant_id = pv.id
 WHERE (il.stocked_quantity - il.reserved_quantity) < 10
-ORDER BY available_quantity ASC;
+ORDER BY available ASC;
 ```
 
-#### Out of Stock Count
+**Out-of-Stock Count**
 ```sql
-SELECT 
-  COUNT(*) AS out_of_stock_items
+SELECT COUNT(*) AS out_of_stock
 FROM inventory_item ii
 JOIN inventory_level il ON ii.id = il.inventory_item_id
 WHERE (il.stocked_quantity - il.reserved_quantity) <= 0;
@@ -249,19 +511,35 @@ WHERE (il.stocked_quantity - il.reserved_quantity) <= 0;
 
 ---
 
-### 5. Payments Split
+### Payment Method Split
 
-#### M-Pesa vs Card Split (Lipa Na M-Pesa vs Paystack)
+**M-Pesa vs Paystack vs Other**
 ```sql
-SELECT 
-  CASE 
-    WHEN provider_id LIKE '%mpesa%' THEN 'M-Pesa (STK Push)'
-    WHEN provider_id LIKE '%paystack%' THEN 'Paystack (Card/Alternative)'
-    ELSE 'Other / Default'
-  END AS payment_method,
-  COUNT(*) AS transaction_count,
-  SUM(amount) / 100.0 AS total_amount_kes
+SELECT
+  CASE
+    WHEN provider_id LIKE '%mpesa%'    THEN 'M-Pesa (STK / Till)'
+    WHEN provider_id LIKE '%paystack%' THEN 'Paystack (Card)'
+    ELSE 'Other'
+  END                        AS payment_method,
+  COUNT(*)                   AS transactions,
+  SUM(amount) / 100.0        AS total_kes
 FROM payment
-GROUP BY 1;
+GROUP BY 1
+ORDER BY total_kes DESC;
 ```
+
 </details>
+
+---
+
+## Contributing
+
+1. Fork the repository and create a feature branch: `git checkout -b feat/my-feature`
+2. Make changes, run `pnpm lint` and `pnpm type-check` before committing
+3. Open a pull request with a clear description of the change and its motivation
+
+---
+
+## License
+
+MIT © Biashara Hub Contributors

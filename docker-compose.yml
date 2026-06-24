@@ -1,3 +1,10 @@
+# ⚠️  DEV-ONLY — DO NOT USE IN PRODUCTION AS-IS
+# Before deploying:
+#   1. Replace all passwords below with strong random secrets (use a secrets manager).
+#   2. Remove the `ports` bindings for postgres and redis so they are not reachable
+#      from outside the Docker network.
+#   3. Give Metabase its own dedicated database (see comment below).
+#   4. Replace MEILI_MASTER_KEY with a long random string.
 version: '3.8'
 
 services:
@@ -7,11 +14,17 @@ services:
     environment:
       POSTGRES_DB: ke_ecommerce
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      # ⚠️  Change this before production — use POSTGRES_PASSWORD_FILE or a secrets manager
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_before_production}
+      # Password for the read-only Metabase analytics user (created by init script below)
+      METABASE_RO_PASSWORD: ${METABASE_RO_PASSWORD:-metabase_readonly_change_me}
+    # ⚠️  Remove this port binding in production — exposes DB to the internet
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Runs once on first start: creates the metabase_ro read-only user
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
 
   redis:
     image: redis:7-alpine
@@ -24,25 +37,35 @@ services:
   meilisearch:
     image: getmeili/meilisearch:latest
     restart: unless-stopped
+    # ⚠️  Remove this port binding or restrict to 127.0.0.1 in production
     ports:
       - "7700:7700"
     environment:
       MEILI_ENV: development
-      MEILI_MASTER_KEY: masterKey
+      # ⚠️  Change this before production — use a long random string
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-masterKey}
     volumes:
       - meilisearch_data:/meili_data
 
+  # ⚠️  Metabase currently shares the application database (ke_ecommerce).
+  # This means any Metabase user has read access to ALL application data.
+  # For production: point MB_DB_* at a dedicated Metabase database, and
+  # give Metabase a read-only replica of the app DB for dashboards.
   metabase:
     image: metabase/metabase:v0.52.9
     restart: unless-stopped
     ports:
       - "3001:3000"
     environment:
+      # Metabase stores its own app state in a dedicated DB to keep it separate
+      # from the application DB. Using the same DB here is fine for local dev,
+      # but in production point MB_DB_* at a separate postgres database.
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: ke_ecommerce
       MB_DB_PORT: 5432
-      MB_DB_USER: postgres
-      MB_DB_PASS: password
+      # ✅ Read-only user — Metabase can query but not mutate application data
+      MB_DB_USER: metabase_ro
+      MB_DB_PASS: ${METABASE_RO_PASSWORD:-metabase_readonly_change_me}
       MB_DB_HOST: postgres
       JAVA_OPTS: "-Xmx512m"
     depends_on:

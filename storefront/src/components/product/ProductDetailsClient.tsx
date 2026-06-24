@@ -9,6 +9,7 @@ import { Star, ShieldCheck, Truck, RotateCcw, Headphones, Plus, Minus, ShoppingC
 import { useCart } from "@/context/CartContext"
 import { formatKES } from "@/lib/formatters"
 import { trackProductView, trackAddToCart } from "@/lib/analytics"
+import { useWishlist, type WishlistItem } from "@/hooks/useWishlist"
 
 interface ProductDetailsClientProps {
   product: any
@@ -17,31 +18,22 @@ interface ProductDetailsClientProps {
 export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
   const { addToCart, isLoading, setIsCartDrawerOpen } = useCart()
   const router = useRouter()
-  const [isWishlisted, setIsWishlisted] = useState(false)
+  const { isWishlisted, toggleWishlist } = useWishlist(product.id)
+
+  const wishlistItem: WishlistItem = {
+    id: product.id,
+    title: product.title,
+    handle: product.handle ?? null,
+    thumbnail: product.thumbnail ?? null,
+  }
 
   const variants = product.variants || []
-  
-  // Default states
+
   const [selectedVariant, setSelectedVariant] = useState<any>(variants[0] || null)
   const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState<string>(
     product.thumbnail || (product.images?.[0]?.url) || ""
   )
-
-  // Check if item is wishlisted on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("wishlist")
-      if (stored) {
-        try {
-          const list = JSON.parse(stored)
-          setIsWishlisted(list.some((item: any) => item.id === product.id))
-        } catch (e) {
-          console.error(e)
-        }
-      }
-    }
-  }, [product.id])
 
   // Track product view on mount
   useEffect(() => {
@@ -52,36 +44,6 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       trackProductView(product.id, product.title, price)
     }
   }, [product.id, product.title])
-
-  const toggleWishlist = () => {
-    if (typeof window === "undefined") return
-
-    const stored = localStorage.getItem("wishlist")
-    let list = []
-    if (stored) {
-      try {
-        list = JSON.parse(stored)
-      } catch (e) {
-        console.error(e)
-      }
-    }
-
-    let updatedList = []
-    if (isWishlisted) {
-      updatedList = list.filter((item: any) => item.id !== product.id)
-      setIsWishlisted(false)
-    } else {
-      updatedList = [...list, {
-        id: product.id,
-        title: product.title,
-        handle: product.handle,
-        thumbnail: product.thumbnail,
-        variants: product.variants
-      }]
-      setIsWishlisted(true)
-    }
-    localStorage.setItem("wishlist", JSON.stringify(updatedList))
-  }
 
   const handleVariantSelect = (variantId: string) => {
     const variant = variants.find((v: any) => v.id === variantId)
@@ -199,24 +161,70 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
               <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-text mt-1">
                 {product.title}
               </h1>
-              <div className="flex items-center gap-2 mt-3">
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} size={16} className="fill-gold text-gold" />
-                  ))}
+              {/* Rating stars — only shown when the product has real rating metadata */}
+              {(product.metadata?.rating_average || product.metadata?.review_count) && (
+                <div className="flex items-center gap-2 mt-3">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        size={16}
+                        className={
+                          star <= Math.round(Number(product.metadata?.rating_average ?? 0))
+                            ? "fill-gold text-gold"
+                            : "fill-muted/30 text-muted/30"
+                        }
+                      />
+                    ))}
+                  </div>
+                  {product.metadata?.review_count && (
+                    <span className="text-xs text-muted font-medium">
+                      ({product.metadata.review_count} reviews)
+                    </span>
+                  )}
                 </div>
-                <span className="text-xs text-muted font-medium">(5.0 Customer Rating)</span>
-              </div>
+              )}
             </div>
 
-            {/* Price */}
+            {/* Price + Inventory-aware stock badge */}
             <div className="border-y border-border py-4 flex items-baseline gap-3">
               <span className="text-2xl md:text-3xl font-extrabold text-primary">
                 {formatKES(price)}
               </span>
-              <span className="text-xs text-muted bg-surface border border-border px-2 py-1 rounded-md font-semibold">
-                In Stock & Ready to Ship
-              </span>
+              {(() => {
+                const firstVariant = variants[0]
+                if (!firstVariant) return null
+                const manages = firstVariant.manage_inventory
+                const qty = firstVariant.inventory_quantity ?? null
+                if (!manages) {
+                  // Inventory not tracked — show neutral badge
+                  return (
+                    <span className="text-xs text-muted bg-surface border border-border px-2 py-1 rounded-md font-semibold">
+                      Check Availability
+                    </span>
+                  )
+                }
+                if (qty === null || qty === undefined) return null
+                if (qty <= 0) {
+                  return (
+                    <span className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded-md font-semibold">
+                      Out of Stock
+                    </span>
+                  )
+                }
+                if (qty <= 5) {
+                  return (
+                    <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md font-semibold">
+                      Low Stock — {qty} left
+                    </span>
+                  )
+                }
+                return (
+                  <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-md font-semibold">
+                    In Stock &amp; Ready to Ship
+                  </span>
+                )
+              })()}
             </div>
 
             {/* Variants selection */}
@@ -280,7 +288,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
 
                 <button
                   type="button"
-                  onClick={toggleWishlist}
+                  onClick={() => toggleWishlist(wishlistItem)}
                   className="h-12 w-12 border border-border bg-white hover:border-muted text-text rounded-xl flex items-center justify-center cursor-pointer transition-all shadow-sm flex-shrink-0"
                   title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
                 >
