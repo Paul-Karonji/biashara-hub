@@ -2,10 +2,10 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Check, ShieldCheck, ArrowLeft, ArrowRight, Smartphone, Loader2, AlertCircle } from "lucide-react"
+import { Check, ShieldCheck, ArrowLeft, ArrowRight, Smartphone, Loader2, AlertCircle, X } from "lucide-react"
 import { useCart } from "@/context/CartContext"
 import { medusa } from "@/lib/medusa"
 import { formatKES } from "@/lib/formatters"
@@ -21,7 +21,7 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
   const [isMpesaProcessing, setIsMpesaProcessing] = useState(false)
-  const [mpesaTimer, setMpesaTimer] = useState(5)
+  const [mpesaTimer, setMpesaTimer] = useState(120)
 
   // Form states
   const [email, setEmail] = useState("")
@@ -45,6 +45,11 @@ export default function CheckoutPage() {
   const [manualVerifyLoading, setManualVerifyLoading] = useState(false)
   const [manualVerifySuccess, setManualVerifySuccess] = useState("")
   const [manualVerifyError, setManualVerifyError] = useState("")
+
+  // Refs for STK Push cancellation — allow cancel button to clear active polling interval
+  const cancelIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const cancelRejectRef = useRef<((reason?: any) => void) | null>(null)
+  const [isRedirectingToPaystack, setIsRedirectingToPaystack] = useState(false)
 
   const handleVerifyManualMpesa = async () => {
     if (!manualMpesaCode.trim()) return
@@ -88,6 +93,27 @@ export default function CheckoutPage() {
     }
   }
 
+  // Normalize raw phone input to 254XXXXXXXXX for display in the STK overlay
+  const normalizeDisplayPhone = (phone: string) => {
+    const cleaned = phone.replace(/\s/g, "").replace(/^\+/, "")
+    if (cleaned.startsWith("0")) return `254${cleaned.slice(1)}`
+    if ((cleaned.startsWith("7") || cleaned.startsWith("1")) && cleaned.length === 9) return `254${cleaned}`
+    return cleaned
+  }
+
+  // Cancel an in-progress STK Push: clears the polling interval and rejects the pending Promise
+  const handleCancelMpesa = () => {
+    if (cancelIntervalRef.current) {
+      clearInterval(cancelIntervalRef.current)
+      cancelIntervalRef.current = null
+    }
+    if (cancelRejectRef.current) {
+      cancelRejectRef.current(new Error("CANCELLED"))
+      cancelRejectRef.current = null
+    }
+    setIsMpesaProcessing(false)
+    setIsSubmitting(false)
+  }
 
   const items = cart?.items || []
   const subtotal = cart?.subtotal || 0
@@ -262,7 +288,9 @@ export default function CheckoutPage() {
 
           // 3. Poll for status every 3 seconds
           return new Promise<void>((resolve, reject) => {
+            cancelRejectRef.current = reject // expose reject so cancel button can terminate this Promise
             let attempts = 0
+            let consecutiveErrors = 0
             const interval = setInterval(async () => {
               try {
                 const statusRes = await fetch(`${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || 'http://localhost:9000'}/store/mpesa/status/${checkoutRequestId}`, {
@@ -273,9 +301,12 @@ export default function CheckoutPage() {
                 }
                 
                 const statusData = await statusRes.json()
+                consecutiveErrors = 0 // reset on successful poll
 
                 if (statusData.confirmed || statusData.status === 'authorized') {
                   clearInterval(interval)
+                  cancelIntervalRef.current = null
+                  cancelRejectRef.current = null
                   
                   // Complete cart now since payment callback authorized it
                   const compRes = await medusa.store.cart.complete(cart.id)
@@ -289,19 +320,32 @@ export default function CheckoutPage() {
                   }
                 } else if (statusData.status === 'failed') {
                   clearInterval(interval)
+                  cancelIntervalRef.current = null
+                  cancelRejectRef.current = null
                   reject(new Error(statusData.failure_reason || "M-Pesa STK transaction was cancelled or declined."))
                 }
               } catch (pollErr: any) {
+                consecutiveErrors++
                 console.error("Polling error:", pollErr)
+                // After 3 consecutive network failures surface a hard error rather than silently waiting
+                if (consecutiveErrors >= 3) {
+                  clearInterval(interval)
+                  cancelIntervalRef.current = null
+                  cancelRejectRef.current = null
+                  reject(new Error("Network issue while checking payment status. Please check your connection and try again."))
+                }
               }
 
               attempts++
               setMpesaTimer((prev) => (prev > 3 ? prev - 3 : 0))
               if (attempts >= 40) { // 120 seconds timeout
                 clearInterval(interval)
+                cancelIntervalRef.current = null
+                cancelRejectRef.current = null
                 reject(new Error("Payment prompt timed out. If you didn't receive a prompt, please try again or select the manual Till payment option."))
               }
             }, 3000)
+            cancelIntervalRef.current = interval // store so cancel button can reach it
           })
         } else {
           // Manual Till flow
@@ -320,9 +364,12 @@ export default function CheckoutPage() {
           }
         }
       } else if (paymentMethod === "card") {
-        // 1. Initialize Paystack card session
+        // 1. Initialize Paystack card session.
+        // The medusa-payment-paystack plugin reads email from initiatePaymentData.data.email
+        // and throws a hard error if it is missing — so we must forward the cart email here.
         const session = await medusa.store.payment.initiatePaymentSession(cart, {
           provider_id: "pp_paystack_paystack",
+          data: { email },
         })
 
         // 2. Fetch the authorization URL from the paystack session (plugin uses paystackTxAuthorizationUrl)
@@ -334,7 +381,8 @@ export default function CheckoutPage() {
           (paystackSession?.data as any)?.paystackTxAuthorizationUrl
 
         if (authorizationUrl) {
-          // Redirect the browser to Paystack hosted payment page
+          // Show redirect overlay then navigate to Paystack hosted payment page
+          setIsRedirectingToPaystack(true)
           window.location.href = authorizationUrl
         } else {
           throw new Error("Paystack card checkout session could not be initialized.")
@@ -354,8 +402,11 @@ export default function CheckoutPage() {
         }
       }
     } catch (error: any) {
-      console.error("Error placing order:", error)
-      setErrorMessage(error.message || "Failed to place order. Please try again.")
+      // Silently ignore user-initiated STK cancels — no error banner needed
+      if (error?.message !== "CANCELLED") {
+        console.error("Error placing order:", error)
+        setErrorMessage(error.message || "Failed to place order. Please try again.")
+      }
       setIsMpesaProcessing(false)
       setIsSubmitting(false)
     }
@@ -890,6 +941,17 @@ export default function CheckoutPage() {
       {isMpesaProcessing && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in animate-duration-200">
           <div className="bg-white rounded-md p-8 max-w-md w-full border border-border text-center space-y-6 shadow-elevated relative">
+
+            {/* Top-right cancel (×) button */}
+            <button
+              type="button"
+              onClick={handleCancelMpesa}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface text-muted hover:text-text transition-colors cursor-pointer"
+              aria-label="Cancel M-Pesa payment"
+            >
+              <X size={16} />
+            </button>
+
             <div className="flex justify-center">
               <div className="relative flex items-center justify-center">
                 {/* Spinner */}
@@ -906,7 +968,7 @@ export default function CheckoutPage() {
                 STK Prompt Initiated
               </h3>
               <p className="text-muted text-xs leading-relaxed max-w-xs mx-auto">
-                Safaricom has sent an STK prompt to your phone <span className="font-semibold text-text">{mpesaPhone}</span>. Please enter your M-Pesa PIN on your mobile phone screen.
+                Safaricom has sent an STK prompt to your phone <span className="font-semibold text-text">{normalizeDisplayPhone(mpesaPhone)}</span>. Please enter your M-Pesa PIN on your mobile phone screen.
               </p>
             </div>
 
@@ -915,13 +977,48 @@ export default function CheckoutPage() {
                 Awaiting M-Pesa PIN Input
               </span>
               <span className="text-sm font-bold text-primary mt-1 block">
-                Checking status... Timeout in {mpesaTimer}s
+                Checking status… Timeout in {mpesaTimer}s
               </span>
             </div>
+
+            {/* Inline cancel link — clear call-to-action for wrong-number / no-prompt cases */}
+            <button
+              type="button"
+              onClick={handleCancelMpesa}
+              className="text-xs text-danger hover:underline font-medium cursor-pointer"
+            >
+              Wrong number or didn&apos;t receive a prompt? Cancel and go back.
+            </button>
 
             <div className="text-[10px] text-muted flex items-center gap-1.5 justify-center">
               <ShieldCheck size={14} className="text-success" />
               <span>Payment transactions are secured by Safaricom Daraja.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Paystack Card Redirect Overlay */}
+      {isRedirectingToPaystack && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in animate-duration-200">
+          <div className="bg-white rounded-md p-8 max-w-md w-full border border-border text-center space-y-6 shadow-elevated">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full border-4 border-surface border-t-primary animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <span className="text-[10px] text-primary font-bold uppercase tracking-widest">
+                Secure Checkout
+              </span>
+              <h3 className="text-text font-bold text-lg">
+                Redirecting to Paystack
+              </h3>
+              <p className="text-muted text-xs leading-relaxed max-w-xs mx-auto">
+                You are being securely redirected to Paystack to complete your card payment. Please do not close this tab.
+              </p>
+            </div>
+            <div className="text-[10px] text-muted flex items-center gap-1.5 justify-center">
+              <ShieldCheck size={14} className="text-success" />
+              <span>256-bit SSL encrypted connection via Paystack.</span>
             </div>
           </div>
         </div>

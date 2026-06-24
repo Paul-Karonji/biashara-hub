@@ -24,6 +24,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         'payment_collection.currency_code',
         'payment_collection.amount'
       ],
+      filters: { provider_id: ['pp_mpesa_mpesa', 'mpesa'] } as any,
     })
 
     const matchingSession = paymentSessions.find(

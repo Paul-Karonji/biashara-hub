@@ -97,6 +97,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
             'payment_collection.amount',
             'payment_collection.cart.id',
           ],
+          filters: { provider_id: 'pp_paystack_paystack' } as any,
         })
 
         const matchingSession = paymentSessions.find(

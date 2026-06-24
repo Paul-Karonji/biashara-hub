@@ -61,6 +61,20 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       }
     }
 
+    // DB-backed idempotency: if this cart's session already has a recent STK attempt (within 5 min),
+    // return the cached checkout_request_id without triggering a new push.
+    // This is durable across server restarts unlike the in-memory stkPushMap in provider.ts.
+    const lastAttemptAt = mpesaSession.data?.last_stk_attempt_at as number | undefined
+    const cachedRequestId = mpesaSession.data?.checkout_request_id as string | undefined
+    if (cachedRequestId && lastAttemptAt && Date.now() - lastAttemptAt < 5 * 60 * 1000) {
+      console.log(`STK Push idempotency hit (DB) for cart ${cart_id}. Returning cached checkout_request_id.`)
+      return res.status(200).json({
+        checkout_request_id: cachedRequestId,
+        merchant_request_id: (mpesaSession.data?.merchant_request_id as string | undefined) || null,
+        is_duplicate: true,
+      })
+    }
+
     // 2. Resolve M-Pesa Provider (with constructor bypass for compilation)
     let mpesaProvider: any
     try {
@@ -89,6 +103,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         checkout_request_id: result.CheckoutRequestID,
         merchant_request_id: result.MerchantRequestID,
         status: 'pending',
+        last_stk_attempt_at: Date.now(), // persisted for DB-backed idempotency
       },
     })
 

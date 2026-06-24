@@ -184,7 +184,7 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
                 <span>{formatKES(shippingTotal)}</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-border">
-                <span className="text-text font-bold text-xs">Total Paid</span>
+                <span className="text-text font-bold text-xs">{isPaid ? "Total Paid" : "Order Total"}</span>
                 <span className="text-primary font-extrabold text-sm">{formatKES(total)}</span>
               </div>
             </div>
