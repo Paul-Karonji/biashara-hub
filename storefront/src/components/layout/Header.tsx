@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { ShoppingBag, Heart, User, Search } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useCart } from "@/context/CartContext"
@@ -12,8 +12,20 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("")
   const { cart, setIsCartDrawerOpen } = useCart()
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const cartItemsCount = cart?.items?.reduce((total: number, item: any) => total + item.quantity, 0) || 0
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
@@ -26,7 +38,7 @@ export function Header() {
   }
 
   return (
-    <header className="h-20 bg-white border-b border-border sticky top-0 z-50 w-full shadow-sm">
+    <header className="h-20 bg-white border-b border-border sticky top-0 z-50 w-full">
       <div className="max-w-[1200px] mx-auto px-4 h-full flex items-center justify-between gap-4">
         {/* Left: Brand Logo */}
         <div className="flex-shrink-0">
@@ -37,7 +49,7 @@ export function Header() {
               width={160}
               height={40}
               priority
-              style={{ height: "40px", width: "auto" }}
+              className="h-10 w-auto"
             />
           </Link>
         </div>
@@ -55,12 +67,16 @@ export function Header() {
           >
             <Search size={20} className="text-muted flex-shrink-0" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search quality products..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="flex-1 bg-transparent outline-none text-text text-sm placeholder:text-muted h-full"
             />
+            <kbd className="hidden lg:inline-flex h-6 select-none items-center gap-0.5 rounded border border-border bg-white px-1.5 font-mono text-[9px] font-semibold text-muted shadow-sm uppercase">
+              ⌘K
+            </kbd>
           </form>
         </div>
 

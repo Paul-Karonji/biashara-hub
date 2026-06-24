@@ -35,6 +35,28 @@ const modules: any[] = [
       ],
     },
   },
+  {
+    resolve: "@medusajs/medusa/payment",
+    options: {
+      providers: [
+        {
+          resolve: "./src/modules/mpesa/provider",
+          id: "mpesa",
+          options: {},
+        },
+        {
+          resolve: "medusa-payment-paystack",
+          id: "paystack",
+          options: {
+            secret_key: process.env.PAYSTACK_SECRET_KEY,
+          },
+        },
+      ],
+    },
+  },
+  {
+    resolve: "./src/modules/mpesa",
+  },
 ]
 
 // Dynamically enable MeiliSearch plugin if configured or default to local container
@@ -84,9 +106,9 @@ export default defineConfig({
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
     http: {
-      storeCors: process.env.STORE_CORS || 'http://localhost:3000',
-      adminCors: process.env.ADMIN_CORS || 'http://localhost:9000',
-      authCors: process.env.AUTH_CORS || 'http://localhost:9000,http://localhost:3000',
+      storeCors: process.env.STORE_CORS || 'http://localhost:3000,http://127.0.0.1:3000',
+      adminCors: process.env.ADMIN_CORS || 'http://localhost:9000,http://127.0.0.1:9000',
+      authCors: process.env.AUTH_CORS || 'http://localhost:9000,http://localhost:3000,http://127.0.0.1:9000,http://127.0.0.1:3000',
       jwtSecret: process.env.JWT_SECRET!,
       cookieSecret: process.env.COOKIE_SECRET!,
     },

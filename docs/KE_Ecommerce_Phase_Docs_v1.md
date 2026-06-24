@@ -1906,8 +1906,8 @@ Before switching from sandbox to production:
 | Phase 3 — Storefront | Completed |
 | Phase 4 — Admin, Analytics & Notifications | Completed |
 | Phase 5 — Search, Media & Performance | Scaffolding & Integration Complete (~85%) |
-| Phase 6 — Payments (M-Pesa + Paystack) | Not started |
+| Phase 6 — Payments (M-Pesa + Paystack) | Completed |
 
 ---
 
-*KE Ecommerce Platform — Phase Docs v1.0 · June 2026*
+*KE Ecommerce Platform — Phase Docs v1.1 (Phase 6 Addendum v1.1 Integrated) · June 2026*

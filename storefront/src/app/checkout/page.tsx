@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Check, ShieldCheck, ArrowLeft, ArrowRight, Smartphone } from "lucide-react"
+import { Check, ShieldCheck, ArrowLeft, ArrowRight, Smartphone, Loader2, AlertCircle } from "lucide-react"
 import { useCart } from "@/context/CartContext"
 import { medusa } from "@/lib/medusa"
 import { formatKES } from "@/lib/formatters"
@@ -39,6 +39,55 @@ export default function CheckoutPage() {
   // Payment states
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "card">("mpesa")
   const [mpesaPhone, setMpesaPhone] = useState("")
+  const [mpesaFlow, setMpesaFlow] = useState<"stk" | "manual">("stk")
+  const [manualMpesaCode, setManualMpesaCode] = useState("")
+  const [manualMpesaVerified, setManualMpesaVerified] = useState(false)
+  const [manualVerifyLoading, setManualVerifyLoading] = useState(false)
+  const [manualVerifySuccess, setManualVerifySuccess] = useState("")
+  const [manualVerifyError, setManualVerifyError] = useState("")
+
+  const handleVerifyManualMpesa = async () => {
+    if (!manualMpesaCode.trim()) return
+
+    setManualVerifyLoading(true)
+    setManualVerifyError("")
+    setManualVerifySuccess("")
+
+    try {
+      // 1. Initialize payment session for mpesa
+      await medusa.store.payment.initiatePaymentSession(cart, {
+        provider_id: "pp_mpesa_mpesa",
+      })
+
+      // 2. Call backend C2B verify endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || 'http://localhost:9000'}/store/mpesa/c2b-verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-publishable-api-key": process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || '',
+        },
+        body: JSON.stringify({
+          order_id: cart.id,
+          trans_id: manualMpesaCode.trim().toUpperCase(),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.matched) {
+        setManualMpesaVerified(true)
+        setManualVerifySuccess("Payment verified successfully!")
+      } else {
+        setManualVerifyError(data.message || data.error || "Transaction code not found or amount mismatch. Please try again shortly.")
+      }
+    } catch (err: any) {
+      console.error("Error verifying manual payment:", err)
+      setManualVerifyError("Failed to connect to verification server. Please try again.")
+    } finally {
+      setManualVerifyLoading(false)
+    }
+  }
+
 
   const items = cart?.items || []
   const subtotal = cart?.subtotal || 0
@@ -69,6 +118,7 @@ export default function CheckoutPage() {
     if (cart && cart.id) {
       trackCheckoutStart(cart.total || cart.subtotal || 0)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart?.id])
 
   // Track payment method selected
@@ -157,9 +207,18 @@ export default function CheckoutPage() {
   // Handle Step 3: Payment selection
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (paymentMethod === "mpesa" && !mpesaPhone) {
-      setErrorMessage("Please enter your M-Pesa phone number.")
-      return
+    if (paymentMethod === "mpesa") {
+      if (mpesaFlow === "stk") {
+        if (!mpesaPhone) {
+          setErrorMessage("Please enter your M-Pesa phone number.")
+          return
+        }
+        const cleanPhone = mpesaPhone.replace(/\s/g, "")
+        if (!/^(?:07|01|2547|2541|\+2547|\+2541|7|1)\d{8}$/.test(cleanPhone)) {
+          setErrorMessage("Please enter a valid Kenyan phone number (e.g., 0712345678, 254712345678, or +254712345678).")
+          return
+        }
+      }
     }
     setStep("review")
   }
@@ -169,51 +228,135 @@ export default function CheckoutPage() {
     setIsSubmitting(true)
     setErrorMessage("")
 
-    if (paymentMethod === "mpesa") {
-      setIsMpesaProcessing(true)
-      setMpesaTimer(5)
-      
-      const interval = setInterval(() => {
-        setMpesaTimer((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      await new Promise((resolve) => setTimeout(resolve, 5000))
-    }
-
     try {
-      // 1. Initialize payment session. We try "manual" or check what is available on the backend
-      // Safe fallback: initiate manual provider or continue.
-      try {
-        await medusa.store.payment.initiatePaymentSession(cart, {
-          provider_id: "manual", // Default manual payment provider registered in backend
-        })
-      } catch (pErr) {
-        console.warn("Failed to initiate manual payment session, continuing with placement:", pErr)
-      }
+      if (paymentMethod === "mpesa") {
+        if (mpesaFlow === "stk") {
+          setIsMpesaProcessing(true)
+          setMpesaTimer(120) // 2-minute timeout for STK push input
+          
+          // 1. Initialize payment session for mpesa
+          await medusa.store.payment.initiatePaymentSession(cart, {
+            provider_id: "pp_mpesa_mpesa",
+          })
 
-      // 2. Complete cart
-      const response = await medusa.store.cart.complete(cart.id)
-      
-      if (response.type === "order" && response.order) {
-        const orderId = response.order.id
-        const orderTotal = response.order.total || cart.total || 0
-        trackOrderComplete(orderId, orderTotal, paymentMethod)
-        clearCart() // clear state
-        router.push(`/order/${orderId}`)
+          // 2. Call backend store API to trigger STK push prompt on user's phone
+          const response = await fetch(`${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || 'http://localhost:9000'}/store/mpesa/initiate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-publishable-api-key': process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || '',
+            },
+            body: JSON.stringify({
+              cart_id: cart.id,
+              phone: mpesaPhone,
+            }),
+          })
+
+          if (!response.ok) {
+            const errData = await response.json()
+            throw new Error(errData.error || "Failed to trigger Lipa Na M-Pesa payment prompt.")
+          }
+
+          const initData = await response.json()
+          const checkoutRequestId = initData.checkout_request_id
+
+          // 3. Poll for status every 3 seconds
+          return new Promise<void>((resolve, reject) => {
+            let attempts = 0
+            const interval = setInterval(async () => {
+              try {
+                const statusRes = await fetch(`${process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || 'http://localhost:9000'}/store/mpesa/status/${checkoutRequestId}`, {
+                  headers: { 'x-publishable-api-key': process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || '' },
+                })
+                if (!statusRes.ok) {
+                  throw new Error("Unable to check payment transaction status.")
+                }
+                
+                const statusData = await statusRes.json()
+
+                if (statusData.confirmed || statusData.status === 'authorized') {
+                  clearInterval(interval)
+                  
+                  // Complete cart now since payment callback authorized it
+                  const compRes = await medusa.store.cart.complete(cart.id)
+                  if (compRes.type === "order" && compRes.order) {
+                    trackOrderComplete(compRes.order.id, compRes.order.total, "mpesa")
+                    clearCart()
+                    router.push(`/order/${compRes.order.id}?success=true`)
+                    resolve()
+                  } else {
+                    reject(new Error("Cart completion failed after payment authorization."))
+                  }
+                } else if (statusData.status === 'failed') {
+                  clearInterval(interval)
+                  reject(new Error(statusData.failure_reason || "M-Pesa STK transaction was cancelled or declined."))
+                }
+              } catch (pollErr: any) {
+                console.error("Polling error:", pollErr)
+              }
+
+              attempts++
+              setMpesaTimer((prev) => (prev > 3 ? prev - 3 : 0))
+              if (attempts >= 40) { // 120 seconds timeout
+                clearInterval(interval)
+                reject(new Error("Payment prompt timed out. If you didn't receive a prompt, please try again or select the manual Till payment option."))
+              }
+            }, 3000)
+          })
+        } else {
+          // Manual Till flow
+          if (!manualMpesaVerified) {
+            throw new Error("Please verify your manual M-Pesa payment code before completing the order.")
+          }
+
+          // Complete cart (will succeed because payment session is authorized)
+          const compRes = await medusa.store.cart.complete(cart.id)
+          if (compRes.type === "order" && compRes.order) {
+            trackOrderComplete(compRes.order.id, compRes.order.total, "mpesa")
+            clearCart()
+            router.push(`/order/${compRes.order.id}?success=true`)
+          } else {
+            throw new Error("Failed to complete order. Please retry.")
+          }
+        }
+      } else if (paymentMethod === "card") {
+        // 1. Initialize Paystack card session
+        const session = await medusa.store.payment.initiatePaymentSession(cart, {
+          provider_id: "pp_paystack_paystack",
+        })
+
+        // 2. Fetch the authorization URL from the paystack session (plugin uses paystackTxAuthorizationUrl)
+        const paystackSession = session.payment_collection?.payment_sessions?.find(
+          (s: any) => s.provider_id === "pp_paystack_paystack"
+        )
+        const authorizationUrl = 
+          (paystackSession?.data as any)?.authorization_url || 
+          (paystackSession?.data as any)?.paystackTxAuthorizationUrl
+
+        if (authorizationUrl) {
+          // Redirect the browser to Paystack hosted payment page
+          window.location.href = authorizationUrl
+        } else {
+          throw new Error("Paystack card checkout session could not be initialized.")
+        }
       } else {
-        throw new Error("Unable to place order. The cart could not be completed.")
+        // Fallback for default manual provider
+        await medusa.store.payment.initiatePaymentSession(cart, {
+          provider_id: "manual",
+        })
+        const response = await medusa.store.cart.complete(cart.id)
+        if (response.type === "order" && response.order) {
+          trackOrderComplete(response.order.id, response.order.total, paymentMethod)
+          clearCart()
+          router.push(`/order/${response.order.id}`)
+        } else {
+          throw new Error("Failed to complete order.")
+        }
       }
     } catch (error: any) {
       console.error("Error placing order:", error)
       setErrorMessage(error.message || "Failed to place order. Please try again.")
       setIsMpesaProcessing(false)
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -230,7 +373,7 @@ export default function CheckoutPage() {
       <div className="max-w-[1200px] mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-10">
         
         {/* Left Columns: Step Form */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-border p-6 md:p-10 space-y-8">
+        <div className="lg:col-span-2 bg-white rounded-md border border-border p-6 md:p-10 space-y-8">
           
           {/* Progress Indicator */}
           <div className="flex justify-between items-center relative border-b border-border pb-6">
@@ -257,7 +400,7 @@ export default function CheckoutPage() {
           </div>
 
           {errorMessage && (
-            <div className="p-4 bg-danger/10 border border-danger/20 text-danger text-xs font-medium rounded-xl">
+            <div className="p-4 bg-danger/10 border border-danger/20 text-danger text-xs font-medium rounded-md">
               {errorMessage}
             </div>
           )}
@@ -276,7 +419,7 @@ export default function CheckoutPage() {
                     placeholder="Enter first name"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full h-12 px-4 bg-surface border border-border rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    className="w-full h-12 px-4 bg-surface border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -287,7 +430,7 @@ export default function CheckoutPage() {
                     placeholder="Enter last name"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full h-12 px-4 bg-surface border border-border rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    className="w-full h-12 px-4 bg-surface border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   />
                 </div>
               </div>
@@ -300,7 +443,7 @@ export default function CheckoutPage() {
                   placeholder="name@domain.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 px-4 bg-surface border border-border rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="w-full h-12 px-4 bg-surface border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 />
               </div>
 
@@ -313,7 +456,7 @@ export default function CheckoutPage() {
                     placeholder="e.g. 0712345678"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full h-12 px-4 bg-surface border border-border rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    className="w-full h-12 px-4 bg-surface border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -321,28 +464,26 @@ export default function CheckoutPage() {
                   <select
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="w-full h-12 px-4 bg-surface border border-border rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all appearance-none cursor-pointer"
+                    className="w-full h-12 px-4 bg-surface border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none cursor-pointer"
                   >
                     <option value="Nairobi">Nairobi</option>
                     <option value="Mombasa">Mombasa</option>
                     <option value="Kisumu">Kisumu</option>
                     <option value="Nakuru">Nakuru</option>
                     <option value="Eldoret">Eldoret</option>
-                    <option value="Thika">Thika</option>
-                    <option value="Other">Other parts of Kenya</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-text">Street Address & Delivery Details</label>
+                <label className="text-xs font-semibold text-text">Delivery Address</label>
                 <input
                   type="text"
                   required
                   placeholder="Estate, House No, Street name"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full h-12 px-4 bg-surface border border-border rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="w-full h-12 px-4 bg-surface border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 />
               </div>
 
@@ -350,7 +491,7 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="h-12 px-8 bg-primary hover:bg-[#0b3175] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-12 px-8 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Continue to Shipping
                   <ArrowRight size={14} />
@@ -379,7 +520,7 @@ export default function CheckoutPage() {
                   Loading delivery speeds and rates...
                 </div>
               ) : shippingOptions.length === 0 ? (
-                <div className="p-6 bg-surface border border-border rounded-xl text-center text-xs text-muted">
+                <div className="p-6 bg-surface border border-border rounded-md text-center text-xs text-muted">
                   No shipping options available for this region. Please go back and verify your address.
                 </div>
               ) : (
@@ -389,7 +530,7 @@ export default function CheckoutPage() {
                     return (
                       <label 
                         key={option.id}
-                        className={`flex items-center justify-between p-5 border rounded-2xl cursor-pointer transition-all ${
+                        className={`flex items-center justify-between p-5 border rounded-md cursor-pointer transition-all ${
                           isSelected 
                             ? "border-primary bg-primary/5 ring-2 ring-primary/10" 
                             : "border-border hover:border-muted bg-white"
@@ -428,14 +569,14 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setStep("address")}
-                  className="h-12 px-6 border border-border text-text hover:bg-surface text-xs font-semibold rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+                  className="h-12 px-6 border border-border text-text hover:bg-surface text-xs font-semibold rounded-sm flex items-center justify-center transition-colors cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !selectedShippingOptionId}
-                  className="h-12 px-8 bg-primary hover:bg-[#0b3175] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-12 px-8 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Continue to Payment
                   <ArrowRight size={14} />
@@ -464,9 +605,9 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("mpesa")}
-                  className={`p-4 border rounded-2xl flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                  className={`p-4 border rounded-md flex flex-col items-center gap-2 cursor-pointer transition-all ${
                     paymentMethod === "mpesa" 
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/10" 
+                      ? "border-primary bg-primary/5" 
                       : "border-border hover:border-muted bg-white"
                   }`}
                 >
@@ -477,9 +618,9 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("card")}
-                  className={`p-4 border rounded-2xl flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                  className={`p-4 border rounded-md flex flex-col items-center gap-2 cursor-pointer transition-all ${
                     paymentMethod === "card" 
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/10" 
+                      ? "border-primary bg-primary/5" 
                       : "border-border hover:border-muted bg-white"
                   }`}
                 >
@@ -490,37 +631,119 @@ export default function CheckoutPage() {
 
               {/* payment details section */}
               {paymentMethod === "mpesa" ? (
-                <div className="p-6 bg-surface border border-border rounded-2xl space-y-4">
-                  <div className="flex items-center gap-2 text-text font-semibold text-sm">
-                    <Smartphone size={18} className="text-primary" />
-                    <span>Lipa Na M-Pesa STK Prompt</span>
+                <div className="p-6 bg-surface border border-border rounded-md space-y-5">
+                  {/* Flow Toggle tabs */}
+                  <div className="flex border border-border rounded-md p-1 bg-white">
+                    <button
+                      type="button"
+                      onClick={() => { setMpesaFlow("stk"); setErrorMessage(""); }}
+                      className={`flex-1 py-2 text-xs font-bold rounded-sm transition-all ${
+                        mpesaFlow === "stk"
+                          ? "bg-primary text-white"
+                          : "text-muted hover:text-text bg-transparent"
+                      }`}
+                    >
+                      STK Push Prompt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMpesaFlow("manual"); setErrorMessage(""); }}
+                      className={`flex-1 py-2 text-xs font-bold rounded-sm transition-all ${
+                        mpesaFlow === "manual"
+                          ? "bg-primary text-white"
+                          : "text-muted hover:text-text bg-transparent"
+                      }`}
+                    >
+                      Manual Till Payment
+                    </button>
                   </div>
-                  <p className="text-xs text-muted leading-relaxed">
-                    We will send a payment prompt directly to your phone. Enter your M-Pesa PIN on your phone to complete the transaction instantly.
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-text">M-Pesa Mobile Number</label>
-                    <div className="flex gap-2">
-                      <span className="h-12 w-16 bg-white border border-border rounded-xl flex items-center justify-center text-sm font-semibold text-text">
-                        +254
-                      </span>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="e.g. 0712345678"
-                        value={mpesaPhone}
-                        onChange={(e) => setMpesaPhone(e.target.value)}
-                        className="flex-1 h-12 px-4 bg-white border border-border rounded-xl text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                      />
+
+                  {mpesaFlow === "stk" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-text font-semibold text-sm">
+                        <Smartphone size={18} className="text-primary" />
+                        <span>Lipa Na M-Pesa STK Prompt</span>
+                      </div>
+                      <p className="text-xs text-muted leading-relaxed">
+                        We will send a payment prompt directly to your phone. Enter your M-Pesa PIN on your phone to complete the transaction instantly.
+                      </p>
+                      
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text">M-Pesa Mobile Number</label>
+                        <div className="flex gap-2">
+                          <span className="h-12 w-16 bg-white border border-border rounded-md flex items-center justify-center text-sm font-semibold text-text">
+                            +254
+                          </span>
+                          <input
+                            type="tel"
+                            placeholder="e.g. 0712345678"
+                            value={mpesaPhone}
+                            onChange={(e) => setMpesaPhone(e.target.value)}
+                            className="flex-1 h-12 px-4 bg-white border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-white border border-border rounded-md space-y-2">
+                        <span className="text-[10px] text-muted font-bold uppercase tracking-wider block">How to Pay Manually:</span>
+                        <p className="text-xs text-text leading-relaxed">
+                          1. Select **Lipa Na M-Pesa** &gt; **Buy Goods and Services**.<br />
+                          2. Enter Till Number: <span className="font-bold text-primary">174379</span>.<br />
+                          3. Enter exact amount: <span className="font-bold text-primary">{formatKES(total)}</span>.<br />
+                          4. Pay and enter the 10-character confirmation code below.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text">Transaction Code (e.g. QND46T89XZ)</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            maxLength={10}
+                            placeholder="M-PESA CODE"
+                            value={manualMpesaCode}
+                            onChange={(e) => setManualMpesaCode(e.target.value.toUpperCase())}
+                            disabled={manualMpesaVerified}
+                            className="flex-1 h-12 px-4 bg-white border border-border rounded-md text-sm font-semibold tracking-wider text-center uppercase outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleVerifyManualMpesa}
+                            disabled={manualVerifyLoading || manualMpesaVerified || !manualMpesaCode.trim()}
+                            className="h-12 px-5 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm flex items-center justify-center transition-colors disabled:opacity-50 min-w-[100px]"
+                          >
+                            {manualVerifyLoading ? (
+                              <Loader2 className="animate-spin" size={16} />
+                            ) : (
+                              "Verify Code"
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {manualVerifySuccess && (
+                        <div className="p-3 bg-success/10 border border-success/30 rounded-md text-success text-xs font-medium flex items-center gap-2">
+                          <Check className="flex-shrink-0" size={16} />
+                          <span>{manualVerifySuccess}</span>
+                        </div>
+                      )}
+
+                      {manualVerifyError && (
+                        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-destructive text-xs font-medium flex items-start gap-2">
+                          <AlertCircle className="flex-shrink-0 mt-0.5" size={16} />
+                          <span>{manualVerifyError}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="p-6 bg-surface border border-border rounded-2xl space-y-4 text-center">
-                  <span className="text-xs font-semibold text-muted">Paystack Card Integration Mockup</span>
+                <div className="p-6 bg-surface border border-border rounded-md space-y-4 text-center">
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider block">Paystack Secure Card Checkout</span>
                   <p className="text-xs text-muted leading-relaxed max-w-sm mx-auto">
-                    You will be redirected securely to Paystack to complete your card checkout. Webhook status checks will verify completion on callback.
+                    You will be redirected securely to Paystack to complete your card payment. You can pay using Visa, Mastercard, or AMEX.
                   </p>
                 </div>
               )}
@@ -529,14 +752,14 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setStep("shipping")}
-                  className="h-12 px-6 border border-border text-text hover:bg-surface text-xs font-semibold rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+                  className="h-12 px-6 border border-border text-text hover:bg-surface text-xs font-semibold rounded-sm flex items-center justify-center transition-colors cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="h-12 px-8 bg-primary hover:bg-[#0b3175] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg transition-colors cursor-pointer"
+                  className="h-12 px-8 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   Continue to Review
                   <ArrowRight size={14} />
@@ -561,7 +784,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* Review card details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border border-border rounded-2xl p-6 bg-surface">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border border-border rounded-md p-6 bg-surface">
                 <div className="space-y-1">
                   <h3 className="text-xs font-bold text-text uppercase tracking-wider">Shipping Details</h3>
                   <p className="text-xs text-muted font-medium">{firstName} {lastName}</p>
@@ -573,8 +796,12 @@ export default function CheckoutPage() {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <h3 className="text-xs font-bold text-text uppercase tracking-wider">Payment Method</h3>
-                    <p className="text-xs text-muted font-medium capitalize">
-                      {paymentMethod === "mpesa" ? `M-Pesa STK Prompt (${mpesaPhone})` : "Credit / Debit Card"}
+                    <p className="text-xs text-muted font-medium">
+                      {paymentMethod === "mpesa" 
+                        ? (mpesaFlow === "stk" 
+                            ? `M-Pesa STK Prompt (${mpesaPhone})` 
+                            : `M-Pesa Till (Manual: ${manualMpesaCode || "Unverified"})`)
+                        : "Credit / Debit Card"}
                     </p>
                   </div>
 
@@ -589,7 +816,7 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setStep("payment")}
-                  className="h-12 px-6 border border-border text-text hover:bg-surface text-xs font-semibold rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+                  className="h-12 px-6 border border-border text-text hover:bg-surface text-xs font-semibold rounded-sm flex items-center justify-center transition-colors cursor-pointer"
                 >
                   Back
                 </button>
@@ -597,7 +824,7 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={handlePlaceOrder}
                   disabled={isSubmitting}
-                  className="h-12 px-8 bg-primary hover:bg-[#0b3175] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-12 px-8 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? "Completing Purchase..." : "Confirm & Place Order"}
                 </button>
@@ -608,14 +835,14 @@ export default function CheckoutPage() {
         </div>
 
         {/* Right Column: Mini Cart Summary */}
-        <div className="bg-white rounded-2xl border border-border p-6 space-y-6 h-fit sticky top-24">
+        <div className="bg-white rounded-md border border-border p-6 space-y-6 h-fit sticky top-24">
           <h2 className="text-text font-bold text-base">Checkout Summary</h2>
           
           {/* Item List */}
           <div className="space-y-4 max-h-[250px] overflow-y-auto pr-1">
             {items.map((item: any) => (
               <div key={item.id} className="flex gap-3 items-center">
-                <div className="relative w-12 h-12 rounded-lg bg-surface border border-border overflow-hidden flex-shrink-0">
+                <div className="relative w-12 h-12 rounded-sm bg-surface border border-border overflow-hidden flex-shrink-0">
                   {item.thumbnail ? (
                     <Image src={item.thumbnail} alt={item.title} fill className="object-cover" />
                   ) : (
@@ -662,7 +889,7 @@ export default function CheckoutPage() {
       {/* M-Pesa STK Push Processing Overlay */}
       {isMpesaProcessing && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in animate-duration-200">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-border text-center space-y-6 shadow-elevated relative">
+          <div className="bg-white rounded-md p-8 max-w-md w-full border border-border text-center space-y-6 shadow-elevated relative">
             <div className="flex justify-center">
               <div className="relative flex items-center justify-center">
                 {/* Spinner */}
@@ -683,12 +910,12 @@ export default function CheckoutPage() {
               </p>
             </div>
 
-            <div className="bg-surface rounded-xl p-4 border border-border">
+            <div className="bg-surface rounded-md p-4 border border-border">
               <span className="text-[10px] text-muted font-semibold block uppercase">
-                Simulating Payment Callback
+                Awaiting M-Pesa PIN Input
               </span>
               <span className="text-sm font-bold text-primary mt-1 block">
-                Checking status in {mpesaTimer}s...
+                Checking status... Timeout in {mpesaTimer}s
               </span>
             </div>
 

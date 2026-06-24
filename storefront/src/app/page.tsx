@@ -80,14 +80,11 @@ export default async function HomePage() {
         <div className="max-w-[1200px] mx-auto px-4 py-12 md:py-0 w-full relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
           {/* Left: Headline & CTAs */}
           <div className="flex flex-col items-start text-white max-w-xl">
-            <span className="text-gold font-semibold tracking-wider text-xs md:text-sm uppercase mb-3">
-              Premium Shopping Experience
-            </span>
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-medium leading-tight">
               Quality Products.<br />
-              <span className="text-gold-light">Trusted by Kenyans.</span>
+              <span className="text-gold-light italic">Trusted by Kenyans.</span>
             </h1>
-            <p className="text-white/80 text-sm md:text-base mt-4 leading-relaxed">
+            <p className="text-white/80 text-sm md:text-base mt-6 leading-relaxed font-sans">
               Shop authentic gadgets, clothing, household assets, and groceries. Seamless checkout with M-Pesa STK Push and nationwide door-to-door delivery.
             </p>
             <div className="flex flex-wrap gap-4 mt-8 w-full sm:w-auto">
@@ -109,9 +106,9 @@ export default async function HomePage() {
 
           {/* Right: Featured Visual Mockup (CSS designed layout) */}
           <div className="hidden md:flex justify-center items-center relative h-full">
-            <div className="relative w-80 h-80 lg:w-[400px] lg:h-[400px] bg-white/5 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center shadow-elevated">
+            <div className="relative w-80 h-80 lg:w-[400px] lg:h-[400px] bg-white/5 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
               {/* Overlapping premium cards simulation representing products */}
-              <div className="absolute transform -rotate-6 -translate-x-12 -translate-y-6 w-48 h-60 bg-white rounded-2xl shadow-elevated border border-border p-4 flex flex-col justify-between">
+              <div className="absolute transform -rotate-6 -translate-x-12 -translate-y-6 w-48 h-60 bg-white rounded-xl border border-border p-4 flex flex-col justify-between transition-all duration-200 hover:shadow-elevated">
                 <div className="w-full h-32 rounded-xl bg-surface relative overflow-hidden flex items-center justify-center">
                   <Shirt size={48} className="text-primary/40" />
                 </div>
@@ -125,7 +122,7 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              <div className="absolute transform rotate-6 translate-x-12 translate-y-6 w-48 h-60 bg-white rounded-2xl shadow-elevated border border-border p-4 flex flex-col justify-between z-10">
+              <div className="absolute transform rotate-6 translate-x-12 translate-y-6 w-48 h-60 bg-white rounded-xl border border-border p-4 flex flex-col justify-between z-10 transition-all duration-200 hover:shadow-elevated">
                 <div className="w-full h-32 rounded-xl bg-surface relative overflow-hidden flex items-center justify-center">
                   <Smartphone size={48} className="text-primary/40" />
                 </div>
@@ -148,10 +145,10 @@ export default async function HomePage() {
 
       {/* 3. Featured Categories Grid */}
       {displayCategories.length > 0 && (
-        <section className="max-w-[1200px] mx-auto px-4 py-8 w-full">
+        <section className="max-w-[1200px] mx-auto px-4 py-12 w-full">
           <div className="flex justify-between items-end mb-6">
             <div>
-              <h2 className="text-[#0F172A] font-bold text-xl md:text-2xl">Featured Categories</h2>
+              <h2 className="text-[#0F172A] font-serif font-semibold text-2xl md:text-3xl">Featured Categories</h2>
               <p className="text-muted text-xs md:text-sm mt-1">Explore our curated collections</p>
             </div>
           </div>
@@ -162,7 +159,7 @@ export default async function HomePage() {
                 <Link
                   key={category.id}
                   href={`/c/${category.handle}`}
-                  className="group flex flex-col items-center p-6 bg-white border border-border rounded-2xl hover:border-gold hover:shadow-card transition-all duration-200"
+                  className="group flex flex-col items-center p-6 bg-white border border-border rounded-xl hover:border-gold hover:shadow-card transition-all duration-200"
                 >
                   <div className="w-12 h-12 rounded-xl bg-surface flex items-center justify-center text-primary group-hover:bg-gold-light/20 group-hover:text-gold transition-colors duration-200">
                     <Icon size={24} />
@@ -181,7 +178,7 @@ export default async function HomePage() {
       <section className="max-w-[1200px] mx-auto px-4 py-12 w-full">
         <div className="flex justify-between items-end mb-8">
           <div>
-            <h2 className="text-[#0F172A] font-bold text-xl md:text-2xl">Featured Products</h2>
+            <h2 className="text-[#0F172A] font-serif font-semibold text-2xl md:text-3xl">Featured Products</h2>
             <p className="text-muted text-xs md:text-sm mt-1">Trending arrivals in Nairobi and across Kenya</p>
           </div>
           <Link
@@ -205,7 +202,7 @@ export default async function HomePage() {
             ))}
           </div>
         ) : (
-          <div className="w-full bg-surface rounded-2xl p-12 border border-border flex flex-col items-center justify-center text-center">
+          <div className="w-full bg-surface rounded-xl p-12 border border-border flex flex-col items-center justify-center text-center">
             <h3 className="text-text font-bold text-base">No Products Found</h3>
             <p className="text-muted text-xs mt-1 max-w-xs">
               We couldn&apos;t load the products from the catalog database. Make sure your Medusa backend is running and seeded.
@@ -217,9 +214,8 @@ export default async function HomePage() {
       {/* 5. Benefits Section */}
       <section className="bg-navy py-16">
         <div className="max-w-[1200px] mx-auto px-4">
-          <div className="text-center mb-10">
-            <span className="text-gold font-semibold tracking-wider text-xs uppercase">Why Choose Us</span>
-            <h2 className="text-white font-bold text-2xl md:text-3xl mt-2">Why Shop with Biashara Hub?</h2>
+          <div className="text-center mb-12">
+            <h2 className="text-white font-serif font-semibold text-3xl md:text-4xl mt-2">Why Shop with Biashara Hub?</h2>
             <p className="text-white/60 text-sm mt-2">Built for Kenyans. By Kenyans.</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
@@ -231,7 +227,7 @@ export default async function HomePage() {
             ].map((benefit, i) => {
               const Icon = benefit.icon
               return (
-                <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6 text-center hover:bg-white/10 transition-colors flex flex-col items-center justify-center">
+                <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-5 md:p-6 text-center hover:bg-white/10 transition-colors flex flex-col items-center justify-center">
                   <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gold mb-4">
                     <Icon size={24} />
                   </div>

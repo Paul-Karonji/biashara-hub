@@ -90,8 +90,7 @@ export function ProductCard({ product, isNew, isSale }: ProductCardProps) {
   return (
     <Link
       href={`/p/${product.handle}`}
-      className="group flex flex-col bg-white rounded-xl overflow-hidden border border-border transition-all duration-200 hover:scale-[1.02] hover:shadow-elevated"
-      style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
+      className="group flex flex-col bg-white rounded-md overflow-hidden border border-border transition-all duration-200 hover:scale-[1.02] hover:shadow-ambient"
     >
       {/* Image container */}
       <div className="relative aspect-square w-full bg-surface overflow-hidden">
@@ -113,7 +112,7 @@ export function ProductCard({ product, isNew, isSale }: ProductCardProps) {
         <button
           type="button"
           onClick={toggleWishlist}
-          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-text border border-border flex items-center justify-center cursor-pointer shadow-sm transition-all hover:scale-105"
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-text border border-border flex items-center justify-center cursor-pointer transition-all hover:scale-105 hover:shadow-ambient"
           title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
         >
           <Heart size={14} className={isWishlisted ? "fill-danger text-danger" : "text-text"} />
@@ -162,7 +161,7 @@ export function ProductCard({ product, isNew, isSale }: ProductCardProps) {
           <button 
             type="button"
             disabled={isLoading || !firstVariantId}
-            className="w-full h-10 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center disabled:opacity-50"
+            className="w-full h-10 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm transition-colors duration-200 cursor-pointer flex items-center justify-center disabled:opacity-50"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()

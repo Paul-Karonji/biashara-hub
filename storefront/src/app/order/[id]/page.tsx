@@ -4,7 +4,7 @@ import React from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { notFound } from "next/navigation"
-import { CheckCircle2, ShieldCheck, Truck, ArrowRight } from "lucide-react"
+import { CheckCircle2, ShieldCheck, Truck, ArrowRight, AlertCircle, Clock } from "lucide-react"
 import { medusa } from "@/lib/medusa"
 import { formatKES } from "@/lib/formatters"
 import type { Metadata } from "next"
@@ -14,14 +14,14 @@ interface PageProps {
 }
 
 export const metadata: Metadata = {
-  title: "Order Confirmed | Biashara Hub",
-  description: "Thank you for your order! Your purchase on Biashara Hub is successful. Track your delivery details here.",
+  title: "Order Details | Biashara Hub",
+  description: "Check your order and delivery details on Biashara Hub.",
 }
 
 async function getOrderDetails(id: string) {
   try {
     const response = await medusa.store.order.retrieve(id, {
-      fields: "*items,*shipping_address,*shipping_methods",
+      fields: "*items,*shipping_address,*shipping_methods,payment_status",
     })
     return response.order || null
   } catch (error) {
@@ -44,25 +44,75 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
   const subtotal = order.subtotal || 0
   const shippingTotal = order.shipping_total || 0
 
+  const isPaid = order.payment_status === "captured" || order.payment_status === "authorized"
+
   return (
     <div className="flex-1 bg-background py-16 md:py-24 animate-fade-in">
       <div className="max-w-[700px] mx-auto px-4 text-center space-y-8">
         
-        {/* Success Icon & Heading */}
+        {/* Status Icon & Heading */}
         <div className="flex flex-col items-center space-y-3">
-          <div className="w-16 h-16 rounded-full bg-success/15 border border-success/30 flex items-center justify-center text-success mb-2">
-            <CheckCircle2 size={36} className="animate-scale-up" />
-          </div>
-          <span className="text-xs font-bold text-success tracking-widest uppercase">
-            Order Confirmed
-          </span>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-text tracking-tight">
-            Thank you for your purchase!
-          </h1>
-          <p className="text-muted text-sm max-w-md mx-auto">
-            Your payment via M-Pesa is processed successfully. We have sent a confirmation email to <span className="font-semibold text-text">{order.email}</span>.
-          </p>
+          {isPaid ? (
+            <>
+              <div className="w-16 h-16 rounded-full bg-success/15 border border-success/30 flex items-center justify-center text-success mb-2">
+                <CheckCircle2 size={36} className="animate-scale-up" />
+              </div>
+              <span className="text-xs font-bold text-success tracking-widest uppercase">
+                Order Confirmed
+              </span>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-text tracking-tight">
+                Thank you for your purchase!
+              </h1>
+              <p className="text-muted text-sm max-w-md mx-auto">
+                Your payment was processed successfully. We have sent a confirmation email to <span className="font-semibold text-text">{order.email}</span>.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 mb-2">
+                <Clock size={36} className="animate-pulse" />
+              </div>
+              <span className="text-xs font-bold text-amber-600 tracking-widest uppercase">
+                Payment Pending
+              </span>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-text tracking-tight">
+                Order Placed Successfully
+              </h1>
+              <p className="text-muted text-sm max-w-md mx-auto">
+                Your order is placed, but payment is pending verification. Please verify your manual payment code below.
+              </p>
+            </>
+          )}
         </div>
+
+        {/* Manual Payment Instructions Card */}
+        {!isPaid && (
+          <div className="bg-amber-50/30 border border-amber-200 rounded-2xl p-6 text-left space-y-4 shadow-sm">
+            <div className="flex items-center gap-2.5 text-amber-800 font-bold text-sm">
+              <AlertCircle size={20} className="text-amber-600 flex-shrink-0" />
+              <span>Lipa Na M-Pesa Payment Instructions</span>
+            </div>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              If you have paid manually to our Till Number, please verify your payment code. Otherwise, pay KES {formatKES(total)} to proceed:
+            </p>
+            <div className="p-4 bg-white border border-amber-200/60 rounded-xl space-y-2 text-xs text-text font-medium">
+              <p>1. Open M-Pesa on your phone.</p>
+              <p>2. Select <strong>Lipa Na M-Pesa</strong> &gt; <strong>Buy Goods and Services</strong>.</p>
+              <p>3. Enter Till Number: <strong className="text-primary font-bold">174379</strong>.</p>
+              <p>4. Enter exact amount: <strong className="text-primary font-bold">{formatKES(total)}</strong>.</p>
+              <p>5. Complete the transaction by entering your M-Pesa PIN.</p>
+            </div>
+            <div className="pt-2 flex justify-start">
+              <Link
+                href={`/order/${order.id}/c2b-verify`}
+                className="h-11 px-5 bg-gold hover:bg-[#b88710] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+              >
+                Verify Payment Code
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Order Card Detail Box */}
         <div className="bg-white rounded-2xl border border-border overflow-hidden text-left shadow-card">

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-24T00:03:00Z",
+  "title": "Design System: Biashara Hub",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Cobalt Accent",
+        "canonical": "oklch(40% 0.18 260)",
+        "tonalRamp": ["#030e24", "#061c47", "#09296b", "#0f3d91", "#3361b5", "#668cd9", "#a8c0f5", "#ebf0fd"]
+      },
+      "navy": {
+        "role": "primary",
+        "displayName": "Midnight Ink",
+        "canonical": "oklch(30% 0.14 260)",
+        "tonalRamp": ["#020612", "#040d24", "#061436", "#0a2d6b", "#14489c", "#3372cf", "#7aa7eb", "#e0ebfb"]
+      },
+      "gold": {
+        "role": "accent",
+        "displayName": "Sunlight Brass",
+        "canonical": "oklch(70% 0.16 85)",
+        "tonalRamp": ["#2b2002", "#523c04", "#805e06", "#d4a017", "#e7be4c", "#f0d585", "#f9ecd2", "#fffbf2"]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Pure Gallery BG",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": ["#000000", "#1e1e1e", "#444444", "#777777", "#aaaaaa", "#cccccc", "#eeeeee", "#ffffff"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display Serif",
+        "purpose": "Hero and major marketing titles."
+      }
+    },
+    "shadows": [
+      { "name": "ambient-low", "value": "0 4px 12px rgba(0,0,0,0.05)", "purpose": "Delicate hover feedback." },
+      { "name": "elevated", "value": "0 12px 30px rgba(0,0,0,0.08)", "purpose": "Drawer overlays and modals." }
+    ],
+    "motion": [
+      { "name": "transition-standard", "value": "200ms ease", "purpose": "Transitions for buttons and interactive links." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "390px" },
+      { "name": "content", "value": "1200px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Standard action driver.",
+      "html": "<button class=\"ds-btn-primary\">SHOP NOW</button>",
+      "css": ".ds-btn-primary { background: #0F3D91; color: #FFFFFF; font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; transition: background 200ms ease; } .ds-btn-primary:hover { background: #0A2D6B; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Editorial Gallery",
+    "overview": "Biashara Hub utilizes a sophisticated high-fashion editorial layout strategy designed to build instant consumer trust. The system rejects crowded, low-contrast SaaS dashboards and busy e-commerce marketplaces in favor of high-contrast serif headers, clean sans-serif bodies, spacious breathing layouts, and delicate hairline grid borders.",
+    "keyCharacteristics": [
+      "Hairline Grids: Thin, high-contrast borders organize layout structures cleanly.",
+      "Serif Hierarchy: Cormorant Garamond is used for commanding display/headline tags.",
+      "Minimalist Swatches: Large expanses of background white and slate surface, accented by authoritative Midnight Navy."
+    ],
+    "rules": [
+      { "name": "The 10% Gold Rule", "body": "Accent Gold is reserved strictly for high-value details (ratings, premium icons, active highlights). It must never exceed 10% of any screen’s visual weight.", "section": "colors" },
+      { "name": "The Display Letter-Spacing Rule", "body": "Display headings using Cormorant Garamond must maintain letter-spacing of at least -0.02em to prevent elegant serifs from colliding.", "section": "typography" },
+      { "name": "The Flat-at-Rest Rule", "body": "All cards, buttons, and input fields remain flat with a 1px border at rest. Drop shadows are triggered only as feedback to active user hover or overlay events.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do enforce a strict 70/20/10 color weight distribution.",
+      "Do use text-wrap: balance on H1 and H2 display headers.",
+      "Do verify contrast ratios hit >= 4.5:1 on all form labels, input values, and placeholder texts."
+    ],
+    "donts": [
+      "Don't use SaaS-cream or beige background gradients.",
+      "Don't round card corners beyond 16px.",
+      "Don't use gradient text clipping or glassmorphic blur layers.",
+      "Don't add colored accent side-stripes (like border-left-4).",
+      "Don't put uppercase kicker eyebrows on every section header."
+    ]
+  }
+}

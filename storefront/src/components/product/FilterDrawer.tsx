@@ -125,9 +125,9 @@ export function FilterDrawer({
                     key={opt.value}
                     type="button"
                     onClick={() => setSort(opt.value)}
-                    className={`h-11 px-4 text-xs font-semibold rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                    className={`h-11 px-4 text-xs font-semibold rounded-sm border flex items-center justify-between cursor-pointer transition-all ${
                       isSelected
-                        ? "border-primary bg-primary/5 text-primary ring-2 ring-primary/10"
+                        ? "border-primary bg-primary/5 text-primary"
                         : "border-border bg-white text-text hover:border-muted"
                     }`}
                   >
@@ -154,7 +154,7 @@ export function FilterDrawer({
                   placeholder="Min"
                   value={minPrice}
                   onChange={(e) => setMinPrice(e.target.value)}
-                  className="w-full h-11 px-3 bg-surface border border-border rounded-xl text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="w-full h-11 px-3 bg-surface border border-border rounded-md text-xs outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 />
               </div>
               <div className="space-y-1.5">
@@ -164,7 +164,7 @@ export function FilterDrawer({
                   placeholder="Max"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-full h-11 px-3 bg-surface border border-border rounded-xl text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="w-full h-11 px-3 bg-surface border border-border rounded-md text-xs outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 />
               </div>
             </div>
@@ -183,7 +183,7 @@ export function FilterDrawer({
                     key={size}
                     type="button"
                     onClick={() => handleSizeToggle(size)}
-                    className={`h-10 px-4 text-xs font-semibold rounded-lg border flex items-center justify-center cursor-pointer transition-all ${
+                    className={`h-10 px-4 text-xs font-semibold rounded-sm border flex items-center justify-center cursor-pointer transition-all ${
                       isSelected
                         ? "border-primary bg-primary text-white"
                         : "border-border bg-white text-text hover:border-muted"
@@ -209,7 +209,7 @@ export function FilterDrawer({
                     key={color}
                     type="button"
                     onClick={() => handleColorToggle(color)}
-                    className={`h-10 px-4 text-xs font-semibold rounded-lg border flex items-center justify-center cursor-pointer transition-all ${
+                    className={`h-10 px-4 text-xs font-semibold rounded-sm border flex items-center justify-center cursor-pointer transition-all ${
                       isSelected
                         ? "border-primary bg-primary text-white"
                         : "border-border bg-white text-text hover:border-muted"
@@ -229,7 +229,7 @@ export function FilterDrawer({
           <button
             type="button"
             onClick={handleReset}
-            className="flex-1 h-12 border border-border hover:bg-surface text-text text-xs font-semibold rounded-xl transition-all cursor-pointer"
+            className="flex-1 h-12 border border-border hover:bg-surface text-text text-xs font-semibold rounded-sm transition-all cursor-pointer"
           >
             Clear Filters
           </button>
@@ -237,7 +237,7 @@ export function FilterDrawer({
           <button
             type="button"
             onClick={handleApply}
-            className="flex-1 h-12 bg-primary hover:bg-[#0b3175] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-md"
+            className="flex-1 h-12 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm transition-all cursor-pointer"
           >
             Apply Filters
           </button>

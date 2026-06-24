@@ -89,7 +89,7 @@ export function CartDrawer() {
               </p>
               <button
                 onClick={() => setIsCartDrawerOpen(false)}
-                className="mt-6 h-11 px-6 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-xl transition-colors duration-200 cursor-pointer"
+                className="mt-6 h-11 px-6 bg-primary hover:bg-navy text-white text-xs font-semibold rounded-sm transition-colors duration-200 cursor-pointer"
               >
                 Start Shopping
               </button>
@@ -101,10 +101,10 @@ export function CartDrawer() {
                 return (
                   <div 
                     key={item.id}
-                    className="flex gap-4 p-4 border border-border rounded-2xl hover:border-primary/30 transition-all duration-200"
+                    className="flex gap-4 p-4 border border-border rounded-md hover:border-primary/30 transition-all duration-200"
                   >
                     {/* Item Thumbnail */}
-                    <div className="relative w-20 h-20 bg-surface rounded-xl overflow-hidden flex-shrink-0">
+                    <div className="relative w-20 h-20 bg-surface rounded-md overflow-hidden flex-shrink-0">
                       {item.thumbnail ? (
                         <Image 
                           src={item.thumbnail}
@@ -134,7 +134,7 @@ export function CartDrawer() {
 
                       {/* Quantity selector & Delete */}
                       <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center border border-border bg-surface rounded-lg h-8">
+                        <div className="flex items-center border border-border bg-surface rounded-sm h-8">
                           <button
                             onClick={() => updateLineItem(item.id, item.quantity - 1)}
                             disabled={isLoading}
@@ -180,7 +180,7 @@ export function CartDrawer() {
 
         {/* Footer */}
         {items.length > 0 && (
-          <div className="border-t border-border p-6 space-y-4 bg-surface rounded-b-2xl">
+          <div className="border-t border-border p-6 space-y-4 bg-surface rounded-b-none">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted font-medium">Subtotal</span>
               <span className="text-primary font-bold text-base">
@@ -194,14 +194,14 @@ export function CartDrawer() {
               <Link
                 href="/cart"
                 onClick={() => setIsCartDrawerOpen(false)}
-                className="h-12 border border-border hover:bg-white text-text hover:text-primary text-xs font-semibold rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+                className="h-12 border border-border hover:bg-white text-text hover:text-primary text-xs font-semibold rounded-sm flex items-center justify-center transition-colors cursor-pointer"
               >
                 View Full Cart
               </Link>
               <Link
                 href="/checkout"
                 onClick={() => setIsCartDrawerOpen(false)}
-                className="h-12 bg-primary hover:bg-[#0b3175] text-white text-xs font-semibold rounded-xl flex items-center justify-center transition-colors shadow-lg cursor-pointer"
+                className="h-12 bg-primary hover:bg-[#0b3175] text-white text-xs font-semibold rounded-sm flex items-center justify-center transition-colors cursor-pointer"
               >
                 Checkout Now
               </Link>
