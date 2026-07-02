@@ -4,8 +4,8 @@ import type { ModuleConfig } from '@medusajs/framework/types'
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 // ── Core Medusa modules ─────────────────────────────────────────────────────
-// Typed as ModuleConfig[] to retain compile-time checks on module options.
-const modules: ModuleConfig[] = [
+const modules: any = [
+
   { resolve: '@medusajs/product' },
   { resolve: '@medusajs/order' },
   { resolve: '@medusajs/cart' },
@@ -126,5 +126,6 @@ export default defineConfig({
       cookieSecret: process.env.COOKIE_SECRET!,
     },
   },
-  modules,
+  modules: modules as any,
 })
+

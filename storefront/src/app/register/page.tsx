@@ -25,26 +25,19 @@ export default function RegisterPage() {
 
     try {
       // Step 1: Register in Auth Identity
-      const authResponse: any = await medusa.auth.register("customer", "emailpass", {
+      await medusa.auth.register("customer", "emailpass", {
         email,
         password,
       })
 
-      const token = authResponse.token
-
-      // Step 2: Create Customer record using the registration token
-      await medusa.store.customer.create(
-        {
-          email,
-          first_name: firstName,
-          last_name: lastName,
-          phone: phone || undefined,
-        },
-        {},
-        {
-          Authorization: `Bearer ${token}`,
-        }
-      )
+      // Step 2: Create Customer record
+      // The SDK automatically sets the token obtained from register()
+      await medusa.store.customer.create({
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone || undefined,
+      })
 
       // Step 3: Login automatically to establish session cookies
       await medusa.auth.login("customer", "emailpass", {

@@ -13,7 +13,8 @@ let inMemoryCache: TokenCache | null = null
 // ioredis ships as a transitive dependency of @medusajs/framework.
 // We lazily create a shared client so each worker shares a single connection.
 // `null` means "not yet tried"; `false` means "unavailable — use in-memory".
-let redisClient: any = null | false
+let redisClient: any = null
+
 
 const REDIS_TOKEN_KEY = 'mpesa:daraja_access_token'
 
