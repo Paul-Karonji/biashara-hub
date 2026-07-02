@@ -127,9 +127,8 @@ export default defineConfig({
     },
   },
   admin: {
-    // Output to a plain (non-hidden) folder so it survives Render's upload step.
-    // The folder is committed to git and served at runtime without a Vite re-build.
-    outDir: './admin-build',
+    // Admin files are pre-built locally and committed to git.
+    // Default outDir (.medusa/server/public/admin/) is used — do not change.
     disable: process.env.DISABLE_MEDUSA_ADMIN === 'true',
   },
   modules: modules as any,
