@@ -23,4 +23,4 @@ build
 !.yarn/sdks
 !.yarn/versions
 
-# .medusa is intentionally NOT ignored so Render includes the build output
+.medusa
