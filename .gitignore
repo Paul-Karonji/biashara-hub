@@ -4,4 +4,6 @@ node_modules/
 .env.production
 dist/
 .next/
-.medusa/
+# .medusa/ is intentionally tracked so pre-built admin files are available on Render
+# Only the compiled backend src is excluded (regenerated on every build)
+!backend/.medusa/server/public/

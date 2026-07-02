@@ -126,6 +126,12 @@ export default defineConfig({
       cookieSecret: process.env.COOKIE_SECRET!,
     },
   },
+  admin: {
+    // Output to a plain (non-hidden) folder so it survives Render's upload step.
+    // The folder is committed to git and served at runtime without a Vite re-build.
+    outDir: './admin-build',
+    disable: process.env.DISABLE_MEDUSA_ADMIN === 'true',
+  },
   modules: modules as any,
 })
 
