@@ -21,6 +21,7 @@ interface ProductCardProps {
         currency_code: string
       }>
     }>
+    metadata?: Record<string, any> | null
   }
   isNew?: boolean
   isSale?: boolean
