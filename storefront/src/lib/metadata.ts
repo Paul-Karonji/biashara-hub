@@ -22,7 +22,7 @@ export const SITE_DESCRIPTION =
 
 /** Shared Open Graph / Twitter base that every page inherits. */
 export const siteMeta = {
-  siteName: SITE_NAME,
+  applicationName: SITE_NAME,
   openGraph: {
     siteName: SITE_NAME,
     type: "website" as const,
