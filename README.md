@@ -121,9 +121,6 @@ biashara-hub/
 │       └── 01-metabase-readonly.sh  # Creates metabase_ro DB user on first run
 │
 └── docs/
-    ├── KE_Ecommerce_Spec_v1.md       # Architectural spec by build phase
-    ├── KE_Ecommerce_Phase_Docs_v1.md # Technical reference & checklist
-    ├── PHASE6_ADDENDUM_v1.1.md       # Phase 6 additions
     └── design.md                     # Typography & colour guidelines
 ```
 
