@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import Link from "next/link"
+import Image from "next/image"
 import { ArrowRight, Smartphone, Shirt, Home, Dumbbell, Sparkles, ShoppingCart, Truck, Lock, Headphones } from "lucide-react"
 import { medusa } from "@/lib/medusa"
 import { TrustBar } from "@/components/shared/TrustBar"
@@ -110,7 +111,7 @@ export default async function HomePage() {
               {/* Overlapping premium cards simulation representing products */}
               <div className="absolute transform -rotate-6 -translate-x-12 -translate-y-6 w-48 h-60 bg-white rounded-xl border border-border p-4 flex flex-col justify-between transition-all duration-200 hover:shadow-elevated">
                 <div className="w-full h-32 rounded-xl bg-surface relative overflow-hidden flex items-center justify-center">
-                  <Shirt size={48} className="text-primary/40" />
+                  <Image src="/hero-tee.png" alt="Classic Tee" fill className="object-cover" />
                 </div>
                 <div>
                   <span className="text-[10px] text-muted tracking-wider uppercase font-semibold">Fashion</span>
@@ -124,7 +125,7 @@ export default async function HomePage() {
 
               <div className="absolute transform rotate-6 translate-x-12 translate-y-6 w-48 h-60 bg-white rounded-xl border border-border p-4 flex flex-col justify-between z-10 transition-all duration-200 hover:shadow-elevated">
                 <div className="w-full h-32 rounded-xl bg-surface relative overflow-hidden flex items-center justify-center">
-                  <Smartphone size={48} className="text-primary/40" />
+                  <Image src="/hero-device.png" alt="Smart Devices" fill className="object-cover" />
                 </div>
                 <div>
                   <span className="text-[10px] text-muted tracking-wider uppercase font-semibold">Electronics</span>
